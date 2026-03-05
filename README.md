@@ -1,0 +1,1 @@
+# resolution-news-aggregator
