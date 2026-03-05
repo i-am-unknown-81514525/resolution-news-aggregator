@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyerr = "0.1.1"
-axum = "0.8.8" # Websocket and history serving
+axum = { version = "0.8.8", features = ["ws"] }# Websocket and history serving
 chrono = "0.4.44"
 serde_json = "1.0.149" # Data sending to client
 tokio = "1.50.0"
