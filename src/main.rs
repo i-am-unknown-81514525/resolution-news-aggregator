@@ -1,4 +1,4 @@
-mod unify_out;
+mod unify;
 
 fn main() {
     println!("Hello, world!");
