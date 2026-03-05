@@ -5,8 +5,10 @@ edition = "2024"
 
 [dependencies]
 anyerr = "0.1.1"
-axum = "0.8.8"
+axum = "0.8.8" # Websocket and history serving
 chrono = "0.4.44"
-serde_json = "1.0.149"
+serde_json = "1.0.149" # Data sending to client
 tokio = "1.50.0"
-toml = "1.0.4"
+toml = "1.0.4" # Source config
+sqlx = { version = "=0.8.1", features = ["sqlite", "runtime-tokio", "chrono"] } # Store historical news
+rusqlite = "=0.32.1"
