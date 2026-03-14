@@ -1,24 +1,27 @@
-use std::fmt;
-use serde::{Serialize, Deserialize, Deserializer, de};
-use serde::de::{Unexpected, Visitor};
+use serde::{Serialize, Deserialize, Deserializer};
+use serde::de::{Visitor};
+use crate::plugins::parser::common::DocumentID;
+use crate::plugins::parser::utils::{string_as_rfc2822};
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Origin {
+pub struct Origin {
     #[serde(rename = "@url")]
-    url: String,
+    pub url: String,
     #[serde(rename = "#text")]
-    publisher: String,
+    pub ublisher: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Item {
+pub struct GoogleMrssItem {
     title: String,
     link: String,
+    guid: DocumentID,
     #[serde(rename = "pubDate", deserialize_with = "string_as_rfc2822")]
     publish_date: chrono::DateTime<chrono::offset::FixedOffset>,
     source: Origin
-
 }
+
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GoogleMrssResult {
     generator: Option<String>,
@@ -29,28 +32,5 @@ pub struct GoogleMrssResult {
     last_build_date: chrono::DateTime<chrono::offset::FixedOffset>,
     description: Option<String>,
     #[serde(rename = "item")]
-    items: Vec<Item>,
-}
-
-fn string_as_rfc2822<'de, D>(deserializer: D) -> Result<chrono::DateTime<chrono::offset::FixedOffset>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    deserializer.deserialize_any(RFC2822Visitor)
-}
-
-struct RFC2822Visitor;
-impl<'de> Visitor<'de> for RFC2822Visitor {
-    type Value = chrono::DateTime<chrono::offset::FixedOffset>;
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a string representation of a RFC2822 datetime string")
-    }
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        chrono::DateTime::parse_from_rfc2822(value).map_err(|_err| {
-            E::invalid_value(Unexpected::Str(value), &"a string representation of a f64")
-        })
-    }
+    items: Vec<GoogleMrssItem>,
 }
