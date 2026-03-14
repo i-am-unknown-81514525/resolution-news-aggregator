@@ -4,6 +4,7 @@ pub trait EnumFromStr : Sized {
     fn enum_str(str: &str) -> Result<Self, String>;
 }
 
+#[macro_export]
 macro_rules! value_enum {
     ($name:ident, $( $value:ident ),*) => {
         #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -45,3 +46,5 @@ macro_rules! value_enum {
         }
     };
 }
+
+pub(crate) use value_enum; 

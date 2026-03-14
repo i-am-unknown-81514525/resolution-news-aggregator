@@ -1,6 +1,7 @@
 use futures_util::{SinkExt, StreamExt};
 mod unify;
 mod value_enum;
+mod plugins;
 
 use tokio;
 use axum::{
