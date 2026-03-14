@@ -1,17 +1,19 @@
+mod google_rss_search;
+
 use std::collections::HashMap;
 use crate::value_enum::{EnumFromStr, value_enum};
 use once_cell::sync::Lazy;
+use crate::plugins::source::google_rss_search::GoogleRssSearch;
 
 value_enum!(RSSSourceType, DirectRss, GoogleWrap, GoogleRssSearch);
 
-pub(crate) trait RSSSource {
-    fn get_url(&self, rss_type: RSSSourceType, value: &str) -> Option<String>;
+pub(crate) trait RSSSource : Send + Sync {
+    fn get_url(&self, value: &str) -> Option<String>;
 }
 
-static RSS_SOURCE_TYPE_MAPPING: Lazy<HashMap<RSSSourceType, Box<dyn RSSSource + Send + Sync>>> = Lazy::new(
-    || HashMap::from(
-        [
-
-        ]
-    )
-);
+pub(crate) fn remap(t: RSSSourceType) -> impl RSSSource {
+    match t {
+        RSSSourceType::GoogleRssSearch => GoogleRssSearch {},
+        _ => todo!()
+    }
+}
