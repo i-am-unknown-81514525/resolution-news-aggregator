@@ -1,3 +1,3 @@
 pub mod source;
-pub mod rss_fetch;
 pub mod parser;
+pub(crate) mod net;

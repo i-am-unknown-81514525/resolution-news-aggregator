@@ -26,7 +26,7 @@ use tokio::sync::mpsc;
 use crate::unify::UnifyOutput;
 use crate::plugins::source::{RSSSource, RSSSourceType, remap};
 use crate::value_enum::EnumFromStr;
-use crate::plugins::rss_fetch::{fetch_rss, get_raw};
+use plugins::net::rss_fetch::{fetch_rss, get_raw};
 
 struct ServerState {
     conns: Vec<WebSocket>,

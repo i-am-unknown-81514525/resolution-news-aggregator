@@ -1,7 +1,7 @@
 // https://news.google.com/rss/search?q=(oil+price+OR+OPEC+OR+"natural+gas"+OR+"crude+oil"+OR+WTI+OR+Brent)+when:1d&hl=en-US&gl=US&ceid=US:en
 
 use serde_xml_rs::from_str;
-use crate::plugins::rss_fetch::RssFetchError;
+use crate::plugins::net::rss_fetch::RssFetchError;
 use crate::plugins::source::{RSSSource, RSSSourceType};
 use crate::plugins::parser::google_mrss::GoogleMrssResult;
 
