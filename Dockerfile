@@ -21,5 +21,7 @@ FROM debian:sid-slim
 WORKDIR /app
 #RUN apt-get update
 #RUN apt-get install -y libc6-amd64 libc6-dev libc6-dbg
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates
 COPY --from=builder /app/target/release/news-aggregator /app/news-agg
 CMD ["./news-agg"]
