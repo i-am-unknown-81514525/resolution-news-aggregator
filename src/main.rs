@@ -24,6 +24,8 @@ use tower_http::{
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tokio::sync::mpsc;
+use tracing::{info, Level};
+use tracing::log::log;
 use crate::unify::{ToVecUnify, UnifyOutput};
 use crate::plugins::source::{RSSSource, RSSSourceType, remap};
 use crate::value_enum::EnumFromStr;
@@ -70,6 +72,7 @@ pub async fn background_fetching(sender: mpsc::UnboundedSender<UnifyOutput>) -> 
         let content = get_raw((&url).parse().unwrap()).await.unwrap();
         let result = source.deserialize(&content).unwrap();
         let outputs = result.to_vec_unify();
+        info!("Pushing {} outputs", outputs.len());
         for output in outputs {
             sender.send(output).unwrap();
         }
@@ -80,7 +83,7 @@ pub async fn background_fetching(sender: mpsc::UnboundedSender<UnifyOutput>) -> 
 
 #[tokio::main]
 async fn main() {
-    println!("Hello, world!");
+    tracing_subscriber::fmt::init();
     let mut state = Arc::new(Mutex::new(ServerState::new()));
     let (sender, mut receiver) = mpsc::unbounded_channel::<UnifyOutput>();
     tokio::spawn(async move {

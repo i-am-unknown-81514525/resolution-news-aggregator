@@ -44,12 +44,23 @@ pub struct GoogleMrssResult {
     #[serde(rename = "lastBuildDate", deserialize_with = "string_as_rfc2822")]
     last_build_date: chrono::DateTime<chrono::offset::FixedOffset>,
     description: Option<String>,
-    #[serde(rename = "item")]
+    #[serde(rename = "item", default)]
     items: Vec<GoogleMrssItem>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Outer {
+    pub channel: GoogleMrssResult
 }
 
 impl ToVecUnify for GoogleMrssResult {
     fn to_vec_unify(&self) -> Vec<UnifyOutput> {
         self.items.iter().clone().map(|x| x.get_unify()).collect()
+    }
+}
+
+impl ToVecUnify for Outer {
+    fn to_vec_unify(&self) -> Vec<UnifyOutput> {
+        self.channel.to_vec_unify()
     }
 }

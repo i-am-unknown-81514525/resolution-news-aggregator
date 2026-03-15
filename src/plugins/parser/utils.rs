@@ -6,7 +6,7 @@ pub fn string_as_rfc2822<'de, D>(deserializer: D) -> Result<chrono::DateTime<chr
 where
     D: Deserializer<'de>,
 {
-    deserializer.deserialize_any(RFC2822Visitor)
+    deserializer.deserialize_string(RFC2822Visitor)
 }
 
 pub struct RFC2822Visitor;
