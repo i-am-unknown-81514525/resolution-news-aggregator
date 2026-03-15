@@ -19,5 +19,6 @@ RUN cargo build --release
 
 FROM debian:bookworm-slim
 WORKDIR /app
+RUN apt-get install -y glibc
 COPY --from=builder /app/target/release/news-aggregator /app/news-agg
 CMD ["./news-agg"]
