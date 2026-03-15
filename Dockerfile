@@ -17,9 +17,9 @@ COPY --from=cacher /app/target target
 COPY --from=cacher /usr/local/cargo /usr/local/cargo
 RUN cargo build --release
 
-FROM debian:bookworm-slim
+FROM debian:sid-slim
 WORKDIR /app
-RUN apt-get update
-RUN apt-get install -y libc6-amd64 libc6-dev libc6-dbg
+#RUN apt-get update
+#RUN apt-get install -y libc6-amd64 libc6-dev libc6-dbg
 COPY --from=builder /app/target/release/news-aggregator /app/news-agg
 CMD ["./news-agg"]
