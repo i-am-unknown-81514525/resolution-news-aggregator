@@ -3,6 +3,7 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use serde_xml_rs::{from_str};
+use tracing::info;
 
 #[derive(Error, Debug)]
 pub(crate) enum RssFetchError {
@@ -17,7 +18,13 @@ static CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
 });
 
 pub(crate) async fn get_raw(url: reqwest::Url) -> Result<String, RssFetchError> {
-    CLIENT.get(url).send().await?.text().await.map_err(|e| RssFetchError::RequestError(e))
+    info!("Fetching url: {} {} (Host: {})", url, url.scheme(), match url.host() {
+        Some(host) => host.to_string(),
+        None => "N/A".to_string(),
+    });
+    let req = CLIENT.get(url).send().await?;
+    let resp = req.text().await.map_err(|e| RssFetchError::RequestError(e));
+    resp
 }
 
 pub(crate) async fn fetch_rss<'a, T: Deserialize<'a>>(url: reqwest::Url) -> Result<T, RssFetchError> {
