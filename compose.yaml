@@ -1,0 +1,10 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "9417:3000/tcp"
+    environment:
+      - RUST_LOG=info
+    restart: unless-stopped
