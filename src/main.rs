@@ -26,7 +26,7 @@ use tokio::sync::mpsc;
 use crate::unify::UnifyOutput;
 use crate::plugins::source::{RSSSource, RSSSourceType, remap};
 use crate::value_enum::EnumFromStr;
-use crate::plugins::rss_fetch::{fetch_rss};
+use crate::plugins::rss_fetch::{fetch_rss, get_raw};
 
 struct ServerState {
     conns: Vec<WebSocket>,
@@ -49,6 +49,8 @@ impl ServerState {
         let kind = RSSSourceType::enum_str("GoogleRssSearch").unwrap();
         let query = "(oil price OR OPEC OR \"natural gas\" OR \"crude oil\" OR WTI OR Brent) when:1h";
         let url = remap(kind).get_url(query).unwrap();
+        let content = get_raw((&url).parse().unwrap()).await.unwrap();
+        let result = remap(kind).deserialize(&content).unwrap();
         
     }
 }
