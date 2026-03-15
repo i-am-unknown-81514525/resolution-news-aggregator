@@ -2,16 +2,17 @@ use serde::{Serialize, Deserialize, Deserializer};
 use serde::de::{Visitor};
 use crate::plugins::parser::common::DocumentID;
 use crate::plugins::parser::utils::{string_as_rfc2822};
+use crate::unify::{ToVecUnify, UnifyOutput};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Origin {
     #[serde(rename = "@url")]
     pub url: String,
     #[serde(rename = "#text")]
-    pub ublisher: String,
+    pub publisher: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct GoogleMrssItem {
     title: String,
     link: String,
@@ -21,8 +22,20 @@ pub struct GoogleMrssItem {
     source: Origin
 }
 
+impl GoogleMrssItem {
+    pub fn get_unify(&self) -> UnifyOutput {
+        UnifyOutput {
+            organisation: self.source.publisher.clone(),
+            title: self.title.clone(),
+            description: "".to_string(),
+            time: self.publish_date,
+            score: None
+        }
+    }
+}
 
-#[derive(Serialize, Deserialize, Debug)]
+
+#[derive(Deserialize, Debug)]
 pub struct GoogleMrssResult {
     generator: Option<String>,
     title: Option<String>,
@@ -33,4 +46,10 @@ pub struct GoogleMrssResult {
     description: Option<String>,
     #[serde(rename = "item")]
     items: Vec<GoogleMrssItem>,
+}
+
+impl ToVecUnify for GoogleMrssResult {
+    fn to_vec_unify(&self) -> Vec<UnifyOutput> {
+        self.items.iter().clone().map(|x| x.get_unify()).collect()
+    }
 }

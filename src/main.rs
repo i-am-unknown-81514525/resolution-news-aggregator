@@ -23,7 +23,7 @@ use tower_http::{
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tokio::sync::mpsc;
-use crate::unify::UnifyOutput;
+use crate::unify::{ToVecUnify, UnifyOutput};
 use crate::plugins::source::{RSSSource, RSSSourceType, remap};
 use crate::value_enum::EnumFromStr;
 use plugins::net::rss_fetch::{fetch_rss, get_raw};
@@ -44,14 +44,18 @@ impl ServerState {
 
     }
 
-    pub async fn background_fetching() -> () {
+    pub async fn background_fetching(&self) -> () {
         // testing currently - should be reading config file in future instead
         let kind = RSSSourceType::enum_str("GoogleRssSearch").unwrap();
+        let source = remap(kind);
         let query = "(oil price OR OPEC OR \"natural gas\" OR \"crude oil\" OR WTI OR Brent) when:1h";
-        let url = remap(kind).get_url(query).unwrap();
+        let url = source.get_url(query).unwrap();
         let content = get_raw((&url).parse().unwrap()).await.unwrap();
-        let result = remap(kind).deserialize(&content).unwrap();
-        
+        let result = source.deserialize(&content).unwrap();
+        let outputs = result.to_vec_unify();
+        for output in outputs {
+            self.sender.send(output).unwrap();
+        }
     }
 }
 
@@ -99,7 +103,10 @@ async fn news_ws_handler(
         //     code: axum::extract::ws::close_code::NORMAL,
         //     reason: Default::default(),
         // }))).await.ok();
-        state.get_mut()?.conns.push(socket);
-        Ok(())
+        let mut state = state.lock();
+        if let Ok(mut state) = state {
+            state.conns.push(socket);
+        }
+        ()
     })
 }

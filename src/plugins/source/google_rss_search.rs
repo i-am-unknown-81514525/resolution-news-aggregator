@@ -8,14 +8,14 @@ use crate::plugins::parser::google_mrss::GoogleMrssResult;
 pub(crate) struct GoogleRssSearch {}
 
 impl RSSSource for GoogleRssSearch {
-    type Deserialize = GoogleMrssResult;
+    type Deserialize<'a> = GoogleMrssResult;
 
     fn get_url(&self, value: &str) -> Option<String> {
         let query = value.to_string();
         return Some(format!("https://news.google.com/rss/search?q=({})&hl=en-US&gl=US&ceid=US:en", query))
     }
 
-    fn deserialize(&self, content: &str) -> Result<Self::Deserialize, RssFetchError> {
+    fn deserialize(&self, content: &str) -> Result<Self::Deserialize<'_>, RssFetchError> {
         let parsed: GoogleMrssResult = from_str(content).map_err(|e| RssFetchError::SerdeXmlParseError(e))?;
         Ok(parsed)
     }
