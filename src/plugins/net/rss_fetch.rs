@@ -13,8 +13,19 @@ pub(crate) enum RssFetchError {
     SerdeXmlParseError(#[from] serde_xml_rs::Error)
 }
 
+use std::sync::Arc;
+
+use reqwest::ClientBuilder;
+use reqwest_hickory_resolver::HickoryResolver;
+
+fn init_with_hickory_resolver() -> reqwest::Result<reqwest::Client> {
+    let mut builder = ClientBuilder::new();
+    builder = builder.dns_resolver(Arc::new(HickoryResolver::default()));
+    builder.build()
+}
+
 static CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
-    reqwest::Client::new()
+    init_with_hickory_resolver().unwrap() // reqwest::Client::new()
 });
 
 pub(crate) async fn get_raw(url: reqwest::Url) -> Result<String, RssFetchError> {

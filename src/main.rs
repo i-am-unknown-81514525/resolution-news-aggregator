@@ -83,7 +83,6 @@ pub async fn background_fetching(sender: mpsc::UnboundedSender<UnifyOutput>) -> 
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
     let mut state = Arc::new(Mutex::new(ServerState::new()));
     let (sender, mut receiver) = mpsc::unbounded_channel::<UnifyOutput>();
     tokio::spawn(async move {
