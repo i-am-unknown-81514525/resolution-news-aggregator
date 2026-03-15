@@ -1,8 +1,9 @@
 use chrono::{DateTime,offset::Utc};
 use async_trait::async_trait;
-
+use serde::Serialize;
 
 /// A unified output format to be displayed on the websocket
+#[derive(Serialize, Debug)]
 pub struct UnifyOutput {
     organisation: String,
     title: String,

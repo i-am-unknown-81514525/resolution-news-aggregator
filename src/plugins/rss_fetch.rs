@@ -7,19 +7,19 @@ use serde_xml_rs::{from_str};
 #[derive(Error, Debug)]
 pub(crate) enum RssFetchError {
     RequestError(#[from] reqwest::Error),
-    SerdeParseError()
+    SerdeXmlParseError(serde_xml_rs::Error)
 }
 
 static CLIENT: Lazy<reqwest::Client> = Lazy::new(|| {
     reqwest::Client::new()
 });
 
-async fn get_raw(url: reqwest::Url) -> Result<String, RssFetchError> {
+pub(crate) async fn get_raw(url: reqwest::Url) -> Result<String, RssFetchError> {
     CLIENT.get(url).send().await?.text().await.map_err(|e| RssFetchError::RequestError(e))
 }
 
-async fn fetch_rss<T: Deserialize>(url: reqwest::Url) -> Result<T, RssFetchError> {
+pub(crate) async fn fetch_rss<T: Deserialize>(url: reqwest::Url) -> Result<T, RssFetchError> {
     let response = get_raw(url).await?;
-    let parsed: T = from_str(&response);
+    let parsed: T = from_str(&response).map_err(|e| RssFetchError::SerdeXmlParseError(e));
     Ok(parsed)
 }
