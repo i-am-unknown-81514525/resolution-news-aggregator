@@ -11,7 +11,7 @@ use crate::unify::ToVecUnify;
 value_enum!(RSSSourceType, DirectRss, GoogleWrap, GoogleRssSearch);
 
 pub(crate) trait RSSSource : Send + Sync {
-    type Deserialize<'a>: Deserialize<'a> + ToVecUnify where Self: 'a;
+    type Deserialize<'a>: Deserialize<'a> + ToVecUnify + Send + Sync where Self: 'a;
     fn get_url(&self, value: &str) -> Option<String>;
     fn deserialize(&self, content: &str) -> Result<Self::Deserialize<'_>, RssFetchError>;
 }

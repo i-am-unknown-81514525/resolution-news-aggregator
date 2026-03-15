@@ -15,7 +15,8 @@ use axum_extra::TypedHeader;
 
 use std::ops::ControlFlow;
 use std::{net::SocketAddr, path::PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
+use tokio::sync::Mutex;
 use axum::extract::{ConnectInfo, State};
 use axum::extract::ws::CloseFrame;
 use tower_http::{
@@ -30,22 +31,38 @@ use plugins::net::rss_fetch::{fetch_rss, get_raw};
 
 struct ServerState {
     conns: Vec<WebSocket>,
-    sender: mpsc::UnboundedSender<UnifyOutput>,
-    receiver: mpsc::UnboundedReceiver<UnifyOutput>,
 }
 
 impl ServerState {
     pub fn new() -> Self {
-        let (sender, receiver) = mpsc::unbounded_channel();
-        Self { conns: Vec::new() , sender, receiver }
+
+        Self { conns: Vec::new()}
     }
+}
 
-    pub async fn background_reading() -> () {
-
+pub async fn background_reading(state: Arc<Mutex<ServerState>>, receiver: &mut mpsc::UnboundedReceiver<UnifyOutput>) -> () {
+    loop {
+        let item = receiver.recv().await;
+        if item.is_none() {
+            panic!("Lost connection to fetch backend");
+        }
+        if let Some(i) = item {
+            let content = serde_json::to_string(&i);
+            if let Ok(content) = content {
+                for socket in state.lock().await.conns.iter_mut() {
+                    let r = socket.send(Message::Text(Utf8Bytes::from(&content))).await;
+                    if r.is_err() {
+                        dbg!(r.unwrap_err());
+                    }
+                }
+            }
+        }
     }
+}
 
-    pub async fn background_fetching(&self) -> () {
-        // testing currently - should be reading config file in future instead
+pub async fn background_fetching(sender: mpsc::UnboundedSender<UnifyOutput>) -> () {
+    // testing currently - should be reading config file in future instead
+    loop {
         let kind = RSSSourceType::enum_str("GoogleRssSearch").unwrap();
         let source = remap(kind);
         let query = "(oil price OR OPEC OR \"natural gas\" OR \"crude oil\" OR WTI OR Brent) when:1h";
@@ -54,17 +71,25 @@ impl ServerState {
         let result = source.deserialize(&content).unwrap();
         let outputs = result.to_vec_unify();
         for output in outputs {
-            self.sender.send(output).unwrap();
+            sender.send(output).unwrap();
         }
+        tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
     }
 }
-
 
 
 #[tokio::main]
 async fn main() {
     println!("Hello, world!");
     let mut state = Arc::new(Mutex::new(ServerState::new()));
+    let (sender, mut receiver) = mpsc::unbounded_channel::<UnifyOutput>();
+    tokio::spawn(async move {
+        background_fetching(sender).await;
+    });
+    let clone = state.clone();
+    tokio::spawn(async move {
+        background_reading(clone, &mut receiver).await;
+    });
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -103,10 +128,8 @@ async fn news_ws_handler(
         //     code: axum::extract::ws::close_code::NORMAL,
         //     reason: Default::default(),
         // }))).await.ok();
-        let mut state = state.lock();
-        if let Ok(mut state) = state {
-            state.conns.push(socket);
-        }
+        let mut state = state.lock().await;
+        state.conns.push(socket);
         ()
     })
 }
