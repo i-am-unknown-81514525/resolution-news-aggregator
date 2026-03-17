@@ -34,13 +34,13 @@ use plugins::net::rss_fetch::{fetch_rss, get_raw};
 
 
 struct ServerState {
-    conns: Vec<WebSocket>,
+    conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
 }
 
 impl ServerState {
     pub fn new() -> Self {
 
-        Self { conns: Vec::new()}
+        Self { conns: Arc::new(Mutex::new(Vec::new()))}
     }
 }
 
@@ -53,12 +53,13 @@ pub async fn background_reading(state: Arc<Mutex<ServerState>>, receiver: &mut m
         if let Some(i) = item {
             let content = serde_json::to_string(&i);
             if let Ok(content) = content {
-                let mut terms: Vec<usize> = Vec::new();
-                let mut state = state.lock().await;
-                let iter = state.conns.iter_mut();
-                for (i, socket) in iter.enumerate() {
+                let mut terms: Vec<Arc<Mutex<WebSocket>>> = Vec::new();
+                let vec: Vec<Arc<Mutex<WebSocket>>> = state.lock().await.conns.lock().await.clone();
+                for socket in vec {
+                    let raw = socket.clone();
+                    let mut socket = socket.lock().await;
                     if socket.is_terminated() {
-                        terms.push(i);
+                        terms.push(raw);
                         continue;
                     }
                     let r = socket.send(Message::Text(Utf8Bytes::from(&content))).await;
@@ -66,10 +67,11 @@ pub async fn background_reading(state: Arc<Mutex<ServerState>>, receiver: &mut m
                         dbg!(r.unwrap_err());
                     }
                 }
-                for term in terms {
-                    state.conns.remove(term);
+                if !terms.is_empty() {
+                    state.lock().await.conns.lock().await.retain(|conn| {
+                        !terms.iter().any(|term| Arc::ptr_eq(conn, term))
+                    })
                 }
-                drop(state);
             }
         }
     }
@@ -144,7 +146,7 @@ async fn news_ws_handler(
         //     reason: Default::default(),
         // }))).await.ok();
         let mut state = state.lock().await;
-        state.conns.push(socket);
+        state.conns.lock().await.push(Arc::new(Mutex::new(socket)));
         ()
     })
 }
