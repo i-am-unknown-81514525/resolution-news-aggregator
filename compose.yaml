@@ -1,10 +1,21 @@
 services:
-  app:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:9417"
+    ports:
+      - "9417:9417"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+  backend:
     build:
       context: .
       dockerfile: Dockerfile.server
-    ports:
-      - "9417:3000/tcp"
     environment:
       - RUST_LOG=info
     restart: unless-stopped
+    labels:
+      - "traefik.http.routers.backend.rule=PathPrefix(`/api`) || PathPrefix(`/ws`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
