@@ -183,7 +183,7 @@ async fn news_ws_handler(
                             }
                         },
                         WebsocketAction::Ping => {
-                            ws.send(Message::Pong(KEEPALIVE_BYTE.clone())).await.ok();
+                            ws.send(Message::Ping(KEEPALIVE_BYTE.clone())).await.ok();
                         }
                     }
                 };
