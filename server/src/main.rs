@@ -63,8 +63,10 @@ pub async fn background_reading(state: Arc<Mutex<ServerState>>, receiver: &mut m
                         continue;
                     }
                     let r = socket.send(Message::Text(Utf8Bytes::from(&content))).await;
-                    if r.is_err() {
-                        dbg!(r.unwrap_err());
+                    if let Err(e) = r {
+                        tracing::warn!("Error sending message, terminating: {}", e);
+                        terms.push(raw);
+                        continue;
                     }
                 }
                 if !terms.is_empty() {
