@@ -1,21 +1,18 @@
 services:
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.6
     command:
-      - "--providers.docker=true"
+      - "--providers.file.filename=/etc/traefik/dynamic.yml" # Use a file, not the socket
       - "--entrypoints.web.address=:9417"
     ports:
       - "9417:9417"
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - ./dynamic.yml:/etc/traefik/dynamic.yml:ro
+    restart: unless-stopped
   backend:
     build:
       context: .
       dockerfile: Dockerfile.server
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=trace
     restart: unless-stopped
-    labels:
-      - "traefik.http.routers.backend.rule=PathPrefix(`/api`) || PathPrefix(`/ws`)"
-      - "traefik.http.routers.backend.entrypoints=web"
-      - "traefik.http.services.backend.loadbalancer.server.port=3000"
