@@ -65,6 +65,7 @@ pub async fn background_reading(state: Arc<Mutex<ServerState>>, receiver: &mut m
                     let r = socket.send(Message::Text(Utf8Bytes::from(&content))).await;
                     if let Err(e) = r {
                         tracing::warn!("Error sending message, terminating: {}", e);
+                        let _ = socket.send(Message::Close(None)).await; // Attempt close anyway
                         terms.push(raw);
                         continue;
                     }
