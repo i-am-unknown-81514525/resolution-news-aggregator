@@ -1433,7 +1433,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "news-aggregator"
+name = "news-aggregator-server"
 version = "0.1.0"
 dependencies = [
  "anyerr",
