@@ -1,4 +1,4 @@
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{FutureExt, SinkExt, StreamExt};
 mod unify;
 mod value_enum;
 mod plugins;
@@ -136,6 +136,14 @@ async fn main() {
         .await;
 }
 
+enum WebsocketAction {
+    Disconnect,
+    Ping,
+    None
+}
+
+static KEEPALIVE_BYTE: once_cell::sync::Lazy<Bytes> = once_cell::sync::Lazy::new(|| {Bytes::from("keepalive")});
+
 async fn news_ws_handler(
     ws: WebSocketUpgrade,
     user_agent: Option<TypedHeader<headers::UserAgent>>,
@@ -148,8 +156,40 @@ async fn news_ws_handler(
         //     code: axum::extract::ws::close_code::NORMAL,
         //     reason: Default::default(),
         // }))).await.ok();
-        let mut state = state.lock().await;
-        state.conns.lock().await.push(Arc::new(Mutex::new(socket)));
+        let socket = Arc::new(Mutex::new(socket));
+        state.lock().await.conns.lock().await.push(socket.clone());
+        let state_clone = state.clone();
+        let _ = tokio::spawn(async move {
+            loop {
+                let mut attempt = socket.try_lock();
+                if let Ok(mut ws) = attempt {
+                    let value = ws.recv().now_or_never();
+                    let mut action = WebsocketAction::Ping;
+                    match value {
+                        Some(None) => {action = WebsocketAction::Disconnect;},
+                        Some(Some(Ok(Message::Close(_)))) => {action = WebsocketAction::Disconnect},
+                        Some(Some(Ok(Message::Ping(_)))) => {action = WebsocketAction::None},
+                        None | _ => {},
+                    };
+                    match action {
+                        WebsocketAction::None => {}
+                        WebsocketAction::Disconnect => {
+                            let mut conns = state_clone.lock().await.conns.clone();
+                            {
+                                let mut inner = conns.lock().await;
+                                if let Some(idx) = inner.iter().position(|x| Arc::ptr_eq(x, &socket)) {
+                                    inner.swap_remove(idx);
+                                }
+                            }
+                        },
+                        WebsocketAction::Ping => {
+                            ws.send(Message::Pong(KEEPALIVE_BYTE.clone())).await.ok();
+                        }
+                    }
+                };
+                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            }
+        }).await;
         ()
     })
 }
