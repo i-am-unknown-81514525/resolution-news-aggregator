@@ -14,5 +14,5 @@ services:
       context: .
       dockerfile: Dockerfile.server
     environment:
-      - RUST_LOG=trace
+      - RUST_LOG=debug
     restart: unless-stopped
