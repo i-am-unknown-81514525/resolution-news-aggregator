@@ -19,6 +19,7 @@ use std::sync::{Arc};
 use tokio::sync::Mutex;
 use axum::extract::{ConnectInfo, State};
 use axum::extract::ws::CloseFrame;
+use futures_util::stream::FusedStream;
 use tower_http::{
     trace::{DefaultMakeSpan, TraceLayer},
 };
@@ -30,6 +31,7 @@ use crate::unify::{ToVecUnify, UnifyOutput};
 use crate::plugins::source::{RSSSource, RSSSourceType, remap};
 use crate::value_enum::EnumFromStr;
 use plugins::net::rss_fetch::{fetch_rss, get_raw};
+
 
 struct ServerState {
     conns: Vec<WebSocket>,
@@ -51,12 +53,23 @@ pub async fn background_reading(state: Arc<Mutex<ServerState>>, receiver: &mut m
         if let Some(i) = item {
             let content = serde_json::to_string(&i);
             if let Ok(content) = content {
-                for socket in state.lock().await.conns.iter_mut() {
+                let mut terms: Vec<usize> = Vec::new();
+                let mut state = state.lock().await;
+                let iter = state.conns.iter_mut();
+                for (i, socket) in iter.enumerate() {
+                    if socket.is_terminated() {
+                        terms.push(i);
+                        continue;
+                    }
                     let r = socket.send(Message::Text(Utf8Bytes::from(&content))).await;
                     if r.is_err() {
                         dbg!(r.unwrap_err());
                     }
                 }
+                for term in terms {
+                    state.conns.remove(term);
+                }
+                drop(state);
             }
         }
     }
