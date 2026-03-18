@@ -51,7 +51,7 @@ pub async fn background_fetching(sender: tokio::sync::broadcast::Sender<UnifyOut
         for output in outputs {
             sender.send(output.to_raw()).unwrap();
         }
-        tokio::time::sleep(tokio::time::Duration::from_secs(20)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
     }
 }
 
