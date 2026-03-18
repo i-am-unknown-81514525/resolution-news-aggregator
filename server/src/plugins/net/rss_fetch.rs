@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 use reqwest;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_xml_rs::from_str;
 use thiserror::Error;
 use tracing::info;
@@ -43,6 +43,7 @@ pub(crate) async fn get_raw(url: reqwest::Url) -> Result<String, RssFetchError> 
     resp
 }
 
+#[allow(dead_code)]
 pub(crate) async fn fetch_rss<'a, T: Deserialize<'a>>(
     url: reqwest::Url,
 ) -> Result<T, RssFetchError> {

@@ -1,4 +1,3 @@
-use std::fmt::{Display, write};
 
 pub trait EnumFromStr: Sized {
     fn enum_str(str: &str) -> Result<Self, String>;

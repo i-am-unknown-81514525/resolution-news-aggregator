@@ -1,8 +1,7 @@
 use crate::plugins::parser::common::DocumentID;
 use crate::plugins::parser::utils::string_as_rfc2822;
 use crate::unify::{ToVecUnify, UnifyOutput};
-use serde::de::Visitor;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Origin {
@@ -13,6 +12,7 @@ pub struct Origin {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(dead_code)]
 pub struct GoogleMrssItem {
     title: String,
     link: String,
@@ -35,6 +35,7 @@ impl GoogleMrssItem {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(dead_code)]
 pub struct GoogleMrssResult {
     generator: Option<String>,
     title: Option<String>,

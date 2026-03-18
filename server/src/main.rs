@@ -1,4 +1,3 @@
-use futures_util::{FutureExt, SinkExt, StreamExt};
 mod plugins;
 mod unify;
 mod value_enum;
@@ -6,7 +5,7 @@ mod value_enum;
 use axum::{
     Router,
     body::Bytes,
-    extract::ws::{Message, Utf8Bytes, WebSocket, WebSocketUpgrade},
+    extract::ws::{Message, WebSocketUpgrade},
     response::IntoResponse,
     routing::any,
 };
@@ -14,21 +13,16 @@ use axum_extra::TypedHeader;
 use tokio;
 
 use crate::plugins::source::{RSSSource, RSSSourceType, remap};
-use crate::unify::{ToVecUnify, UnifyOutput, UnifyOutputRaw};
+use crate::unify::{ToVecUnify, UnifyOutputRaw};
 use crate::value_enum::EnumFromStr;
-use axum::extract::ws::CloseFrame;
 use axum::extract::{ConnectInfo, State};
-use futures_util::stream::FusedStream;
-use plugins::net::rss_fetch::{fetch_rss, get_raw};
-use std::ops::ControlFlow;
+use plugins::net::rss_fetch::get_raw;
 use std::sync::Arc;
 use std::time::Duration;
-use std::{net::SocketAddr, path::PathBuf, sync};
+use std::net::SocketAddr;
 use tokio::sync::Mutex;
-use tokio::sync::mpsc;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
-use tracing::log::log;
-use tracing::{Level, info};
+use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 struct ServerState {
@@ -64,11 +58,11 @@ pub async fn background_fetching(sender: tokio::sync::broadcast::Sender<UnifyOut
 #[tokio::main]
 async fn main() {
     let (sender, receiver) = tokio::sync::broadcast::channel::<UnifyOutputRaw>(1024);
-    let mut state = Arc::new(Mutex::new(ServerState::new(receiver)));
+    let state = Arc::new(Mutex::new(ServerState::new(receiver)));
     tokio::spawn(async move {
         background_fetching(sender).await;
     });
-    let clone = state.clone();
+    let _clone = state.clone();
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -93,20 +87,14 @@ async fn main() {
     .await;
 }
 
-enum WebsocketAction {
-    Disconnect,
-    Ping,
-    None,
-}
-
 static KEEPALIVE_BYTE: once_cell::sync::Lazy<Bytes> =
     once_cell::sync::Lazy::new(|| Bytes::from("keepalive"));
 
 async fn news_ws_handler(
     ws: WebSocketUpgrade,
-    user_agent: Option<TypedHeader<headers::UserAgent>>,
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    State(mut state): State<Arc<Mutex<ServerState>>>,
+    _user_agent: Option<TypedHeader<headers::UserAgent>>,
+    ConnectInfo(_addr): ConnectInfo<SocketAddr>,
+    State(state): State<Arc<Mutex<ServerState>>>,
 ) -> impl IntoResponse {
     ws.on_upgrade(move |mut socket| async move {
         let state_clone = state.clone();

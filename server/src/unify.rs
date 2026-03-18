@@ -1,6 +1,5 @@
-use async_trait::async_trait;
 use axum::body::Bytes;
-use chrono::{DateTime, offset::Utc};
+use chrono::DateTime;
 use serde::{Serialize, Serializer};
 
 fn seralize_dt<S>(x: &DateTime<chrono::offset::FixedOffset>, s: S) -> Result<S::Ok, S::Error>
