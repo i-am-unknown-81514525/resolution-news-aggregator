@@ -14,8 +14,9 @@ use axum::{
 use axum_extra::TypedHeader;
 
 use std::ops::ControlFlow;
-use std::{net::SocketAddr, path::PathBuf};
+use std::{net::SocketAddr, path::PathBuf, sync};
 use std::sync::{Arc};
+use std::time::Duration;
 use tokio::sync::Mutex;
 use axum::extract::{ConnectInfo, State};
 use axum::extract::ws::CloseFrame;
@@ -27,60 +28,27 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tokio::sync::mpsc;
 use tracing::{info, Level};
 use tracing::log::log;
-use crate::unify::{ToVecUnify, UnifyOutput};
+use crate::unify::{ToVecUnify, UnifyOutput, UnifyOutputRaw};
 use crate::plugins::source::{RSSSource, RSSSourceType, remap};
 use crate::value_enum::EnumFromStr;
 use plugins::net::rss_fetch::{fetch_rss, get_raw};
 
 
 struct ServerState {
-    conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
+    // conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
+    receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>,
 }
 
 impl ServerState {
-    pub fn new() -> Self {
-
-        Self { conns: Arc::new(Mutex::new(Vec::new()))}
-    }
-}
-
-pub async fn background_reading(state: Arc<Mutex<ServerState>>, receiver: &mut mpsc::UnboundedReceiver<UnifyOutput>) -> () {
-    loop {
-        let item = receiver.recv().await;
-        if item.is_none() {
-            panic!("Lost connection to fetch backend");
-        }
-        if let Some(i) = item {
-            let content = serde_json::to_string(&i);
-            if let Ok(content) = content {
-                let mut terms: Vec<Arc<Mutex<WebSocket>>> = Vec::new();
-                let vec: Vec<Arc<Mutex<WebSocket>>> = state.lock().await.conns.lock().await.clone();
-                for socket in vec {
-                    let raw = socket.clone();
-                    let mut socket = socket.lock().await;
-                    if socket.is_terminated() {
-                        terms.push(raw);
-                        continue;
-                    }
-                    let r = socket.send(Message::Text(Utf8Bytes::from(&content))).await;
-                    if let Err(e) = r {
-                        tracing::warn!("Error sending message, terminating: {}", e);
-                        let _ = socket.send(Message::Close(None)).await; // Attempt close anyway
-                        terms.push(raw);
-                        continue;
-                    }
-                }
-                if !terms.is_empty() {
-                    state.lock().await.conns.lock().await.retain(|conn| {
-                        !terms.iter().any(|term| Arc::ptr_eq(conn, term))
-                    })
-                }
-            }
+    pub fn new(receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>) -> Self {
+        Self {
+            receiver
         }
     }
 }
 
-pub async fn background_fetching(sender: mpsc::UnboundedSender<UnifyOutput>) -> () {
+
+pub async fn background_fetching(sender: tokio::sync::broadcast::Sender<UnifyOutputRaw>) -> () {
     // testing currently - should be reading config file in future instead
     loop {
         let kind = RSSSourceType::enum_str("GoogleRssSearch").unwrap();
@@ -92,24 +60,21 @@ pub async fn background_fetching(sender: mpsc::UnboundedSender<UnifyOutput>) -> 
         let outputs = result.to_vec_unify();
         info!("Pushing {} outputs", outputs.len());
         for output in outputs {
-            sender.send(output).unwrap();
+            sender.send(output.to_raw()).unwrap();
         }
-        tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(20)).await;
     }
 }
 
 
 #[tokio::main]
 async fn main() {
-    let mut state = Arc::new(Mutex::new(ServerState::new()));
-    let (sender, mut receiver) = mpsc::unbounded_channel::<UnifyOutput>();
+    let (sender, receiver) = tokio::sync::broadcast::channel::<UnifyOutputRaw>(1024);
+    let mut state = Arc::new(Mutex::new(ServerState::new(receiver)));
     tokio::spawn(async move {
         background_fetching(sender).await;
     });
     let clone = state.clone();
-    tokio::spawn(async move {
-        background_reading(clone, &mut receiver).await;
-    });
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -150,45 +115,61 @@ async fn news_ws_handler(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     State(mut state): State<Arc<Mutex<ServerState>>>
 ) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| async move {
-        // let (mut sender, mut receiver) = socket.split();
-        // sender.send(Message::Close(Some(CloseFrame {
-        //     code: axum::extract::ws::close_code::NORMAL,
-        //     reason: Default::default(),
-        // }))).await.ok();
-        let socket = Arc::new(Mutex::new(socket));
-        state.lock().await.conns.lock().await.push(socket.clone());
+    ws.on_upgrade(move |mut socket| async move {
         let state_clone = state.clone();
         let _ = tokio::spawn(async move {
+            let mut rx_backend = state_clone.lock().await.receiver.resubscribe();
             loop {
-                let mut attempt = socket.try_lock();
-                if let Ok(mut ws) = attempt {
-                    let value = ws.recv().now_or_never();
-                    let mut action = WebsocketAction::Ping;
-                    match value {
-                        Some(None) => {action = WebsocketAction::Disconnect;},
-                        Some(Some(Ok(Message::Close(_)))) => {action = WebsocketAction::Disconnect},
-                        Some(Some(Ok(Message::Ping(_)))) => {action = WebsocketAction::None},
-                        None | _ => {},
-                    };
-                    match action {
-                        WebsocketAction::None => {}
-                        WebsocketAction::Disconnect => {
-                            let mut conns = state_clone.lock().await.conns.clone();
-                            {
-                                let mut inner = conns.lock().await;
-                                if let Some(idx) = inner.iter().position(|x| Arc::ptr_eq(x, &socket)) {
-                                    inner.swap_remove(idx);
+                tokio::select! {
+                    backend = rx_backend.recv() => {
+                        match backend {
+                            Ok(v) => {
+                                match socket.send(Message::Binary(v.data)).await {
+                                    Ok(_) => {},
+                                    Err(e) => {
+                                        tracing::warn!("Unhandled websocket disconnection: {}", e);
+                                        break;
+                                    }
                                 }
+                            },
+                            Err(e) => {
+                                tracing::warn!("Websocket disconnection as backend worker disconnected: {}", e);
+                                break;
                             }
-                        },
-                        WebsocketAction::Ping => {
-                            ws.send(Message::Ping(KEEPALIVE_BYTE.clone())).await.ok();
                         }
                     }
-                };
-                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                    sock_ret = socket.recv() => {
+                        match sock_ret {
+                            Some(Ok(Message::Close(c)))=> {
+                                tracing::debug!("Websocket disconnection - received closing frame: {:?}", c);
+                                break;
+                            },
+                            Some(Ok(_)) => {},
+                            Some(Err(e)) => {
+                                tracing::warn!("Unexpected websocket disconnection: {}", e);
+                                break;
+                            },
+                            None => {
+                                tracing::debug!("Websocket disconnection gracefully");
+                            }
+                        }
+                    }
+                    _ = tokio::time::sleep(Duration::from_secs(5)) => {
+                        match socket.send(Message::Ping(KEEPALIVE_BYTE.clone())).await {
+                            Ok(_) => {},
+                            Err(e) => {
+                                tracing::warn!("Unhandled websocket disconnection: {}", e);
+                                break;
+                            }
+                        }
+                    }
+                    else => {
+                        tracing::warn!("Unhandled websocket disconnection");
+                        break;
+                    }
+                }
             }
+            let _ = socket.send(Message::Close(None)).await; // Attempt graceful close and expect failed
         }).await;
         ()
     })
