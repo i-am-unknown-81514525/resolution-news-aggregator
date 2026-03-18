@@ -1,3 +1,3 @@
-pub mod source;
-pub mod parser;
 pub(crate) mod net;
+pub mod parser;
+pub mod source;

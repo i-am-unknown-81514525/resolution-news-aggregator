@@ -1,8 +1,8 @@
-use serde::{Serialize, Deserialize, Deserializer};
-use serde::de::{Visitor};
 use crate::plugins::parser::common::DocumentID;
-use crate::plugins::parser::utils::{string_as_rfc2822};
+use crate::plugins::parser::utils::string_as_rfc2822;
 use crate::unify::{ToVecUnify, UnifyOutput};
+use serde::de::Visitor;
+use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Origin {
@@ -19,7 +19,7 @@ pub struct GoogleMrssItem {
     guid: DocumentID,
     #[serde(rename = "pubDate", deserialize_with = "string_as_rfc2822")]
     publish_date: chrono::DateTime<chrono::offset::FixedOffset>,
-    source: Origin
+    source: Origin,
 }
 
 impl GoogleMrssItem {
@@ -29,11 +29,10 @@ impl GoogleMrssItem {
             title: self.title.clone(),
             description: "".to_string(),
             time: self.publish_date,
-            score: None
+            score: None,
         }
     }
 }
-
 
 #[derive(Deserialize, Debug)]
 pub struct GoogleMrssResult {
@@ -50,7 +49,7 @@ pub struct GoogleMrssResult {
 
 #[derive(Deserialize, Debug)]
 pub struct Outer {
-    pub channel: GoogleMrssResult
+    pub channel: GoogleMrssResult,
 }
 
 impl ToVecUnify for GoogleMrssResult {

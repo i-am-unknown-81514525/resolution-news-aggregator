@@ -1,38 +1,35 @@
 use futures_util::{FutureExt, SinkExt, StreamExt};
+mod plugins;
 mod unify;
 mod value_enum;
-mod plugins;
 
-use tokio;
 use axum::{
+    Router,
     body::Bytes,
     extract::ws::{Message, Utf8Bytes, WebSocket, WebSocketUpgrade},
     response::IntoResponse,
     routing::any,
-    Router
 };
 use axum_extra::TypedHeader;
+use tokio;
 
-use std::ops::ControlFlow;
-use std::{net::SocketAddr, path::PathBuf, sync};
-use std::sync::{Arc};
-use std::time::Duration;
-use tokio::sync::Mutex;
-use axum::extract::{ConnectInfo, State};
-use axum::extract::ws::CloseFrame;
-use futures_util::stream::FusedStream;
-use tower_http::{
-    trace::{DefaultMakeSpan, TraceLayer},
-};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use tokio::sync::mpsc;
-use tracing::{info, Level};
-use tracing::log::log;
-use crate::unify::{ToVecUnify, UnifyOutput, UnifyOutputRaw};
 use crate::plugins::source::{RSSSource, RSSSourceType, remap};
+use crate::unify::{ToVecUnify, UnifyOutput, UnifyOutputRaw};
 use crate::value_enum::EnumFromStr;
+use axum::extract::ws::CloseFrame;
+use axum::extract::{ConnectInfo, State};
+use futures_util::stream::FusedStream;
 use plugins::net::rss_fetch::{fetch_rss, get_raw};
-
+use std::ops::ControlFlow;
+use std::sync::Arc;
+use std::time::Duration;
+use std::{net::SocketAddr, path::PathBuf, sync};
+use tokio::sync::Mutex;
+use tokio::sync::mpsc;
+use tower_http::trace::{DefaultMakeSpan, TraceLayer};
+use tracing::log::log;
+use tracing::{Level, info};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 struct ServerState {
     // conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
@@ -41,19 +38,17 @@ struct ServerState {
 
 impl ServerState {
     pub fn new(receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>) -> Self {
-        Self {
-            receiver
-        }
+        Self { receiver }
     }
 }
-
 
 pub async fn background_fetching(sender: tokio::sync::broadcast::Sender<UnifyOutputRaw>) -> () {
     // testing currently - should be reading config file in future instead
     loop {
         let kind = RSSSourceType::enum_str("GoogleRssSearch").unwrap();
         let source = remap(kind);
-        let query = "(oil price OR OPEC OR \"natural gas\" OR \"crude oil\" OR WTI OR Brent) when:1h";
+        let query =
+            "(oil price OR OPEC OR \"natural gas\" OR \"crude oil\" OR WTI OR Brent) when:1h";
         let url = source.get_url(query).unwrap();
         let content = get_raw((&url).parse().unwrap()).await.unwrap();
         let result = source.deserialize(&content).unwrap();
@@ -65,7 +60,6 @@ pub async fn background_fetching(sender: tokio::sync::broadcast::Sender<UnifyOut
         tokio::time::sleep(tokio::time::Duration::from_secs(20)).await;
     }
 }
-
 
 #[tokio::main]
 async fn main() {
@@ -90,30 +84,29 @@ async fn main() {
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         );
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
     let _ = axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-        .await;
+    .await;
 }
 
 enum WebsocketAction {
     Disconnect,
     Ping,
-    None
+    None,
 }
 
-static KEEPALIVE_BYTE: once_cell::sync::Lazy<Bytes> = once_cell::sync::Lazy::new(|| {Bytes::from("keepalive")});
+static KEEPALIVE_BYTE: once_cell::sync::Lazy<Bytes> =
+    once_cell::sync::Lazy::new(|| Bytes::from("keepalive"));
 
 async fn news_ws_handler(
     ws: WebSocketUpgrade,
     user_agent: Option<TypedHeader<headers::UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    State(mut state): State<Arc<Mutex<ServerState>>>
+    State(mut state): State<Arc<Mutex<ServerState>>>,
 ) -> impl IntoResponse {
     ws.on_upgrade(move |mut socket| async move {
         let state_clone = state.clone();

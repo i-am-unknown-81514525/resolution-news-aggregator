@@ -1,6 +1,6 @@
-use std::fmt::{write, Display};
+use std::fmt::{Display, write};
 
-pub trait EnumFromStr : Sized {
+pub trait EnumFromStr: Sized {
     fn enum_str(str: &str) -> Result<Self, String>;
 }
 
@@ -47,4 +47,4 @@ macro_rules! value_enum {
     };
 }
 
-pub(crate) use value_enum; 
+pub(crate) use value_enum;

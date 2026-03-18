@@ -1,8 +1,10 @@
-use std::fmt;
 use serde::de::{Unexpected, Visitor};
-use serde::{de, Deserializer};
+use serde::{Deserializer, de};
+use std::fmt;
 
-pub fn string_as_rfc2822<'de, D>(deserializer: D) -> Result<chrono::DateTime<chrono::offset::FixedOffset>, D::Error>
+pub fn string_as_rfc2822<'de, D>(
+    deserializer: D,
+) -> Result<chrono::DateTime<chrono::offset::FixedOffset>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -20,7 +22,10 @@ impl<'de> Visitor<'de> for RFC2822Visitor {
         E: de::Error,
     {
         chrono::DateTime::parse_from_rfc2822(value).map_err(|_err| {
-            E::invalid_value(Unexpected::Str(value), &"a string representation of a RFC2822 datetime string")
+            E::invalid_value(
+                Unexpected::Str(value),
+                &"a string representation of a RFC2822 datetime string",
+            )
         })
     }
 }

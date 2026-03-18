@@ -1,6 +1,6 @@
-use chrono::{DateTime,offset::Utc};
 use async_trait::async_trait;
 use axum::body::Bytes;
+use chrono::{DateTime, offset::Utc};
 use serde::{Serialize, Serializer};
 
 fn seralize_dt<S>(x: &DateTime<chrono::offset::FixedOffset>, s: S) -> Result<S::Ok, S::Error>
@@ -18,20 +18,20 @@ pub struct UnifyOutput {
     pub(crate) description: String,
     #[serde(serialize_with = "seralize_dt")]
     pub(crate) time: DateTime<chrono::offset::FixedOffset>,
-    pub(crate) score: Option<f32> // Score for importance of the news
+    pub(crate) score: Option<f32>, // Score for importance of the news
 }
 
 impl UnifyOutput {
     pub(crate) fn to_raw(&self) -> UnifyOutputRaw {
         UnifyOutputRaw {
-            data: Bytes::from(serde_json::to_string(self).unwrap())
+            data: Bytes::from(serde_json::to_string(self).unwrap()),
         }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct UnifyOutputRaw {
-    pub(crate) data: Bytes
+    pub(crate) data: Bytes,
 }
 
 // pub trait Config {}
