@@ -2,7 +2,7 @@ mod google_rss_search;
 
 use crate::plugins::net::rss_fetch::RssFetchError;
 use crate::plugins::source::google_rss_search::GoogleRssSearch;
-use crate::unify::ToVecUnify;
+use common::unify::ToVecUnify;
 use crate::value_enum::{EnumFromStr, value_enum};
 use serde::Deserialize;
 

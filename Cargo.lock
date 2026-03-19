@@ -2718,6 +2718,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "news-aggregator-common"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "chrono",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "news-aggregator-server"
 version = "0.1.0"
 dependencies = [
@@ -2728,6 +2738,7 @@ dependencies = [
  "chrono",
  "futures-util",
  "headers",
+ "news-aggregator-common",
  "once_cell",
  "reqwest",
  "reqwest-hickory-resolver",

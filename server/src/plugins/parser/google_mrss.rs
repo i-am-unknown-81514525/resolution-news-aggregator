@@ -1,6 +1,6 @@
 use crate::plugins::parser::common::DocumentID;
 use crate::plugins::parser::utils::string_as_rfc2822;
-use crate::unify::{ToVecUnify, UnifyOutput};
+use common::unify::{ToVecUnify, UnifyOutput};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -1,19 +1,18 @@
 mod plugins;
-mod unify;
 mod value_enum;
 
 use axum::{
-    Router,
     body::Bytes,
     extract::ws::{Message, WebSocketUpgrade},
     response::IntoResponse,
     routing::any,
+    Router,
 };
 use axum_extra::TypedHeader;
 use tokio;
 
-use crate::plugins::source::{RSSSource, RSSSourceType, remap};
-use crate::unify::{ToVecUnify, UnifyOutputRaw};
+use crate::plugins::source::{remap, RSSSource, RSSSourceType};
+use common::unify::{ToVecUnify, UnifyOutputRaw};
 use crate::value_enum::EnumFromStr;
 use axum::extract::{ConnectInfo, State};
 use plugins::net::rss_fetch::get_raw;

@@ -1,4 +1,4 @@
-use axum::body::Bytes;
+use bytes::Bytes;
 use chrono::DateTime;
 use serde::{Serialize, Serializer};
 
@@ -12,16 +12,16 @@ where
 /// A unified output format to be displayed on the websocket
 #[derive(Serialize, Debug, Clone)]
 pub struct UnifyOutput {
-    pub(crate) organisation: String,
-    pub(crate) title: String,
-    pub(crate) description: String,
+    pub organisation: String,
+    pub title: String,
+    pub description: String,
     #[serde(serialize_with = "seralize_dt")]
-    pub(crate) time: DateTime<chrono::offset::FixedOffset>,
-    pub(crate) score: Option<f32>, // Score for importance of the news
+    pub time: DateTime<chrono::offset::FixedOffset>,
+    pub score: Option<f32>, // Score for importance of the news
 }
 
 impl UnifyOutput {
-    pub(crate) fn to_raw(&self) -> UnifyOutputRaw {
+    pub fn to_raw(&self) -> UnifyOutputRaw {
         UnifyOutputRaw {
             data: Bytes::from(serde_json::to_string(self).unwrap()),
         }
@@ -30,7 +30,7 @@ impl UnifyOutput {
 
 #[derive(Clone, Debug)]
 pub struct UnifyOutputRaw {
-    pub(crate) data: Bytes,
+    pub data: Bytes,
 }
 
 // pub trait Config {}
