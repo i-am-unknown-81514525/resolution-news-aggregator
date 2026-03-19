@@ -1,7 +1,7 @@
 mod plugins;
 mod value_enum;
 
-use ordered_hash_map::OrderedHashMap;
+use indexmap::IndexMap;
 use axum::{
     body::Bytes,
     extract::ws::{Message, WebSocketUpgrade},
@@ -33,18 +33,20 @@ use crate::plugins::parser::common::DocumentID;
 struct ServerState {
     // conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
     receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>,
-    history: Arc<RwLock<OrderedHashMap<DocumentID, Arc<UnifyOutputRaw>>>>
+    history: Arc<RwLock<IndexMap<String, Arc<UnifyOutputRaw>>>>
 }
 
 impl ServerState {
     pub fn new(receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>) -> Self {
-        Self { receiver, history: Arc::new(RwLock::new(OrderedHashMap::with_capacity(1000))) }
+        Self { receiver, history: Arc::new(RwLock::new(IndexMap::with_capacity(1000))) }
     }
 }
 
-pub async fn background_fetching(sender: tokio::sync::broadcast::Sender<UnifyOutputRaw>) -> () {
+pub async fn background_fetching(sender: tokio::sync::broadcast::Sender<UnifyOutputRaw>, state: Arc<Mutex<ServerState>>) -> () {
     // testing currently - should be reading config file in future instead
     loop {
+        let span = tracing::info_span!("background_fetching");
+        let _guard = span.enter();
         let kind = RSSSourceType::enum_str("GoogleRssSearch").unwrap();
         let source = remap(kind);
         let query =
@@ -55,7 +57,14 @@ pub async fn background_fetching(sender: tokio::sync::broadcast::Sender<UnifyOut
         let outputs = result.to_vec_unify();
         info!("Pushing {} outputs", outputs.len());
         for output in outputs {
-            sender.send(output.to_raw()).unwrap();
+            let raw = output.to_raw();
+            if !state.lock().await.history.clone().read().await.contains_key(&output.id) {
+                let ptr = state.lock().await.history.clone();
+                let mut lock = ptr.write().await;
+                lock.entry(output.id.clone()).or_insert(Arc::new(raw.clone()));
+            }
+            let recv_count = sender.send(raw).unwrap_or(0);
+            info!("Pushed document {} to {} receivers", output.id, recv_count);
         }
         tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
     }
@@ -65,8 +74,9 @@ pub async fn background_fetching(sender: tokio::sync::broadcast::Sender<UnifyOut
 async fn main() {
     let (sender, receiver) = tokio::sync::broadcast::channel::<UnifyOutputRaw>(1024);
     let state = Arc::new(Mutex::new(ServerState::new(receiver)));
+    let _clone = state.clone();
     tokio::spawn(async move {
-        background_fetching(sender).await;
+        background_fetching(sender, _clone).await;
     });
     let _clone = state.clone();
     tracing_subscriber::registry()
@@ -80,7 +90,7 @@ async fn main() {
     let app = Router::new()
         .route("/ws", any(news_ws_handler))
         .route("/api/history", any(history_handler))
-        .with_state(state)
+        .with_state(_clone)
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::default().include_headers(true)),
@@ -132,7 +142,6 @@ async fn history_handler(
 
         history_guard
             .iter()
-            .rev()
             .skip((query.page * query.size) as usize)
             .take(query.size as usize)
             .map(|x| x.1.clone())

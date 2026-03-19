@@ -1877,8 +1877,6 @@ version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
 dependencies = [
- "allocator-api2",
- "equivalent",
  "foldhash 0.1.5",
 ]
 
@@ -2752,9 +2750,10 @@ dependencies = [
  "chrono",
  "futures-util",
  "headers",
+ "indexmap",
+ "log",
  "news-aggregator-common",
  "once_cell",
- "ordered_hash_map",
  "reqwest",
  "reqwest-hickory-resolver",
  "rusqlite",
@@ -3174,15 +3173,6 @@ checksum = "9aa2b01e1d916879f73a53d01d1d6cee68adbb31d6d9177a8cfce093cced1d50"
 dependencies = [
  "futures-core",
  "pin-project-lite",
-]
-
-[[package]]
-name = "ordered_hash_map"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6c699f8a30f345785be969deed7eee4c73a5de58c7faf61d6a3251ef798ff61"
-dependencies = [
- "hashbrown 0.15.5",
 ]
 
 [[package]]

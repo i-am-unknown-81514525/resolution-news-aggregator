@@ -1,6 +1,6 @@
 use crate::plugins::parser::common::DocumentID;
 use crate::plugins::parser::utils::string_as_rfc2822;
-use common::unify::{ToVecUnify, UnifyOutput};
+use common::unify::{SourceKind, ToVecUnify, UnifyOutput};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -25,11 +25,13 @@ pub struct GoogleMrssItem {
 impl GoogleMrssItem {
     pub fn get_unify(&self) -> UnifyOutput {
         UnifyOutput {
+            id: self.guid.id.clone(),
             organisation: self.source.publisher.clone(),
             title: self.title.clone(),
             description: "".to_string(),
             time: self.publish_date,
             score: None,
+            source: SourceKind::Source("Google News".to_string())
         }
     }
 }
