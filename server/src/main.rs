@@ -1,10 +1,11 @@
 mod plugins;
 mod value_enum;
 
+use ordered_hash_map::OrderedHashMap;
 use axum::{
     body::Bytes,
     extract::ws::{Message, WebSocketUpgrade},
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     routing::any,
     Router,
 };
@@ -14,24 +15,30 @@ use tokio;
 use crate::plugins::source::{remap, RSSSource, RSSSourceType};
 use common::unify::{ToVecUnify, UnifyOutputRaw};
 use crate::value_enum::EnumFromStr;
-use axum::extract::{ConnectInfo, State};
+use axum::extract::{ConnectInfo, Query, State};
 use plugins::net::rss_fetch::get_raw;
 use std::sync::Arc;
 use std::time::Duration;
 use std::net::SocketAddr;
-use tokio::sync::Mutex;
+use axum::body::Body;
+use axum::extract::ws::Utf8Bytes;
+use serde::Deserialize;
+use sqlx::query;
+use tokio::sync::{Mutex, RwLock};
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use crate::plugins::parser::common::DocumentID;
 
 struct ServerState {
     // conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
     receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>,
+    history: Arc<RwLock<OrderedHashMap<DocumentID, Arc<UnifyOutputRaw>>>>
 }
 
 impl ServerState {
     pub fn new(receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>) -> Self {
-        Self { receiver }
+        Self { receiver, history: Arc::new(RwLock::new(OrderedHashMap::with_capacity(1000))) }
     }
 }
 
@@ -72,6 +79,7 @@ async fn main() {
         .init();
     let app = Router::new()
         .route("/ws", any(news_ws_handler))
+        .route("/api/history", any(history_handler))
         .with_state(state)
         .layer(
             TraceLayer::new_for_http()
@@ -86,8 +94,66 @@ async fn main() {
     .await;
 }
 
+
 static KEEPALIVE_BYTE: once_cell::sync::Lazy<Bytes> =
     once_cell::sync::Lazy::new(|| Bytes::from("keepalive"));
+
+#[derive(Deserialize)]
+struct Pagination {
+    #[serde(default = "default_page")]
+    page: u64,
+    #[serde(default = "default_size")]
+    size: u64,
+}
+
+fn default_page() -> u64 { 0 }
+fn default_size() -> u64 { 100 }
+
+#[axum::debug_handler]
+async fn history_handler(
+    State(state): State<Arc<Mutex<ServerState>>>,
+    Query(query): Query<Pagination>
+) -> Response<Body> {
+    if query.size > 100 || query.size == 0 {
+        return Response::builder()
+            .status(400)
+            .body(Body::from(format!("Query size must be less than or equal to 100 and above 0, received {}", query.size)))
+            .unwrap();
+    }
+    if (query.page + 1) * query.size > (usize::MAX as u64) || (query.page) * query.size > (usize::MAX as u64) {
+        return Response::builder()
+            .status(400)
+            .body(Body::from("Overflow protection"))
+            .unwrap();
+    }
+    let result: Vec<_> = {
+        let state_guard = state.lock().await;
+        let history_guard = state_guard.history.read().await;
+
+        history_guard
+            .iter()
+            .rev()
+            .skip((query.page * query.size) as usize)
+            .take(query.size as usize)
+            .map(|x| x.1.clone())
+            .collect()
+    };
+    let mut resp = String::with_capacity(81920);
+    resp.push('[');
+    for (i, item) in result.iter().enumerate() {
+        if i > 0 {
+            resp.push(',');
+        }
+        resp.push_str(&item.data);
+    }
+    resp.push(']');
+    Response::builder()
+        .status(200)
+        .header("Content-Type", "application/json")
+        .body(Body::from(resp))
+        .unwrap()
+}
+
 
 async fn news_ws_handler(
     ws: WebSocketUpgrade,
@@ -104,7 +170,7 @@ async fn news_ws_handler(
                     backend = rx_backend.recv() => {
                         match backend {
                             Ok(v) => {
-                                match socket.send(Message::Binary(v.data)).await {
+                                match socket.send(Message::Text(Utf8Bytes::from(v.data))).await {
                                     Ok(_) => {},
                                     Err(e) => {
                                         tracing::warn!("Unhandled websocket disconnection: {}", e);

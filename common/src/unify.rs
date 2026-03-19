@@ -23,14 +23,14 @@ pub struct UnifyOutput {
 impl UnifyOutput {
     pub fn to_raw(&self) -> UnifyOutputRaw {
         UnifyOutputRaw {
-            data: Bytes::from(serde_json::to_string(self).unwrap()),
+            data: String::from(serde_json::to_string(self).unwrap()),
         }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct UnifyOutputRaw {
-    pub data: Bytes,
+    pub data: String,
 }
 
 // pub trait Config {}

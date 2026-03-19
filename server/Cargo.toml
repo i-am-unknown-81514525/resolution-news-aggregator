@@ -5,7 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 anyerr = "0.1.1"
-axum = { version = "0.8.8", features = ["ws"] }# Websocket and history serving
+axum = { version = "0.8.8", features = ["ws", "default", "macros"] }# Websocket and history serving
 chrono = "0.4.44"
 serde_json = "1.0.149" # Data sending to client
 tokio = { version = "1.50.0", features = ["full"] }
@@ -26,3 +26,4 @@ serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2"
 reqwest-hickory-resolver = "0.3.0"
 common = { path = "../common/", package = "news-aggregator-common"}
+ordered_hash_map = "0.5.0"
