@@ -2,8 +2,8 @@ mod google_rss_search;
 
 use crate::plugins::net::rss_fetch::RssFetchError;
 use crate::plugins::source::google_rss_search::GoogleRssSearch;
-use common::unify::ToVecUnify;
 use crate::value_enum::{EnumFromStr, value_enum};
+use common::unify::ToVecUnify;
 use serde::Deserialize;
 
 value_enum!(RSSSourceType, DirectRss, GoogleWrap, GoogleRssSearch);

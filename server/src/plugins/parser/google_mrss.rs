@@ -31,7 +31,7 @@ impl GoogleMrssItem {
             description: "".to_string(),
             time: self.publish_date,
             score: None,
-            source: SourceKind::Source("Google News".to_string())
+            source: SourceKind::Source("Google News".to_string()),
         }
     }
 }

@@ -1,48 +1,54 @@
 mod plugins;
 mod value_enum;
 
-use indexmap::IndexMap;
 use axum::{
+    Router,
     body::Bytes,
     extract::ws::{Message, WebSocketUpgrade},
     response::{IntoResponse, Response},
     routing::any,
-    Router,
 };
 use axum_extra::TypedHeader;
+use indexmap::IndexMap;
 use tokio;
 
-use crate::plugins::source::{remap, RSSSource, RSSSourceType};
-use common::unify::{ToVecUnify, UnifyOutputRaw};
+use crate::plugins::parser::common::DocumentID;
+use crate::plugins::source::{RSSSource, RSSSourceType, remap};
 use crate::value_enum::EnumFromStr;
-use axum::extract::{ConnectInfo, Query, State};
-use plugins::net::rss_fetch::get_raw;
-use std::sync::Arc;
-use std::time::Duration;
-use std::net::SocketAddr;
 use axum::body::Body;
 use axum::extract::ws::Utf8Bytes;
+use axum::extract::{ConnectInfo, Query, State};
+use common::unify::{ToVecUnify, UnifyOutputRaw};
+use plugins::net::rss_fetch::get_raw;
 use serde::Deserialize;
 use sqlx::query;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{Mutex, RwLock};
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use crate::plugins::parser::common::DocumentID;
 
 struct ServerState {
     // conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
     receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>,
-    history: Arc<RwLock<IndexMap<String, Arc<UnifyOutputRaw>>>>
+    history: Arc<RwLock<IndexMap<String, Arc<UnifyOutputRaw>>>>,
 }
 
 impl ServerState {
     pub fn new(receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>) -> Self {
-        Self { receiver, history: Arc::new(RwLock::new(IndexMap::with_capacity(1000))) }
+        Self {
+            receiver,
+            history: Arc::new(RwLock::new(IndexMap::with_capacity(1000))),
+        }
     }
 }
 
-pub async fn background_fetching(sender: tokio::sync::broadcast::Sender<UnifyOutputRaw>, state: Arc<Mutex<ServerState>>) -> () {
+pub async fn background_fetching(
+    sender: tokio::sync::broadcast::Sender<UnifyOutputRaw>,
+    state: Arc<Mutex<ServerState>>,
+) -> () {
     // testing currently - should be reading config file in future instead
     loop {
         let span = tracing::info_span!("background_fetching");
@@ -58,10 +64,19 @@ pub async fn background_fetching(sender: tokio::sync::broadcast::Sender<UnifyOut
         info!("Pushing {} outputs", outputs.len());
         for output in outputs {
             let raw = output.to_raw();
-            if !state.lock().await.history.clone().read().await.contains_key(&output.id) {
+            if !state
+                .lock()
+                .await
+                .history
+                .clone()
+                .read()
+                .await
+                .contains_key(&output.id)
+            {
                 let ptr = state.lock().await.history.clone();
                 let mut lock = ptr.write().await;
-                lock.entry(output.id.clone()).or_insert(Arc::new(raw.clone()));
+                lock.entry(output.id.clone())
+                    .or_insert(Arc::new(raw.clone()));
             }
             let recv_count = sender.send(raw).unwrap_or(0);
             info!("Pushed document {} to {} receivers", output.id, recv_count);
@@ -104,7 +119,6 @@ async fn main() {
     .await;
 }
 
-
 static KEEPALIVE_BYTE: once_cell::sync::Lazy<Bytes> =
     once_cell::sync::Lazy::new(|| Bytes::from("keepalive"));
 
@@ -116,21 +130,30 @@ struct Pagination {
     size: u64,
 }
 
-fn default_page() -> u64 { 0 }
-fn default_size() -> u64 { 100 }
+fn default_page() -> u64 {
+    0
+}
+fn default_size() -> u64 {
+    100
+}
 
 #[axum::debug_handler]
 async fn history_handler(
     State(state): State<Arc<Mutex<ServerState>>>,
-    Query(query): Query<Pagination>
+    Query(query): Query<Pagination>,
 ) -> Response<Body> {
     if query.size > 100 || query.size == 0 {
         return Response::builder()
             .status(400)
-            .body(Body::from(format!("Query size must be less than or equal to 100 and above 0, received {}", query.size)))
+            .body(Body::from(format!(
+                "Query size must be less than or equal to 100 and above 0, received {}",
+                query.size
+            )))
             .unwrap();
     }
-    if (query.page + 1) * query.size > (usize::MAX as u64) || (query.page) * query.size > (usize::MAX as u64) {
+    if (query.page + 1) * query.size > (usize::MAX as u64)
+        || (query.page) * query.size > (usize::MAX as u64)
+    {
         return Response::builder()
             .status(400)
             .body(Body::from("Overflow protection"))
@@ -162,7 +185,6 @@ async fn history_handler(
         .body(Body::from(resp))
         .unwrap()
 }
-
 
 async fn news_ws_handler(
     ws: WebSocketUpgrade,

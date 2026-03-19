@@ -1,4 +1,3 @@
-
 pub trait EnumFromStr: Sized {
     fn enum_str(str: &str) -> Result<Self, String>;
 }
