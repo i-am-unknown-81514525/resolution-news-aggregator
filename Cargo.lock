@@ -2751,7 +2751,6 @@ dependencies = [
  "futures-util",
  "headers",
  "indexmap",
- "log",
  "news-aggregator-common",
  "once_cell",
  "reqwest",

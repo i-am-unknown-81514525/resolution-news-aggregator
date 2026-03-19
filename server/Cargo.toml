@@ -26,5 +26,5 @@ serde = { version = "1.0.228", features = ["derive"] }
 thiserror = "2"
 reqwest-hickory-resolver = "0.3.0"
 common = { path = "../common/", package = "news-aggregator-common"}
-log = "0.4.29"
 indexmap = "2.13.0"
+

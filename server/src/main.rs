@@ -1,5 +1,6 @@
 mod plugins;
 mod value_enum;
+mod config;
 
 use axum::{
     Router,
