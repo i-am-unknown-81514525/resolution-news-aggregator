@@ -22,7 +22,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "eframe template",
         native_options,
-        Box::new(|cc| Ok(Box::new(app::TemplateApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(app::App::new(cc)))),
     )
 }
 
@@ -37,6 +37,7 @@ fn main() {
     let web_options = eframe::WebOptions::default();
 
     wasm_bindgen_futures::spawn_local(async {
+
         let document = web_sys::window()
             .expect("No window")
             .document()
@@ -52,7 +53,7 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(app::TemplateApp::new(cc)))),
+                Box::new(|cc| Ok(Box::new(app::App::new(cc)))),
             )
             .await;
 
