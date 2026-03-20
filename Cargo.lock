@@ -2725,6 +2725,7 @@ dependencies = [
  "env_logger",
  "log",
  "serde",
+ "serde-versioning",
  "uuid",
  "wasm-bindgen-futures",
  "web-sys",
@@ -3974,6 +3975,17 @@ checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
  "serde_core",
  "serde_derive",
+]
+
+[[package]]
+name = "serde-versioning"
+version = "1.0.219"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "164eee2986f34dc29687b373f23204a66c3f4e1ae86c51987f726fabf59326a8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
