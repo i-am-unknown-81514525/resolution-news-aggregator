@@ -1,13 +1,30 @@
 use std::fmt;
-use bytes::Bytes;
-use chrono::DateTime;
+use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-fn seralize_dt<S>(x: &DateTime<chrono::offset::FixedOffset>, s: S) -> Result<S::Ok, S::Error>
+fn serialize_dt<S>(x: &DateTime<FixedOffset>, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
     s.serialize_f64(x.naive_utc().and_utc().timestamp_micros() as f64 / (1_000_000.0f64))
+}
+
+pub fn deserialize_dt<'de, D>(deserializer: D) -> Result<DateTime<FixedOffset>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let epoch = f64::deserialize(deserializer)?;
+
+    let seconds = epoch.trunc() as i64;
+    let nanoseconds = (epoch.fract() * 1_000_000_000.0).round() as u32;
+
+    // Create a Utc DateTime first, then convert to FixedOffset (defaults to +00:00)
+    let datetime = Utc
+        .timestamp_opt(seconds, nanoseconds)
+        .single()
+        .ok_or_else(|| serde::de::Error::custom("Invalid Unix timestamp"))?;
+
+    Ok(datetime.with_timezone(&FixedOffset::east_opt(0).unwrap()))
 }
 
 #[derive(Debug, Clone)]
@@ -76,14 +93,14 @@ impl<'de> Deserialize<'de> for SourceKind {
 
 
 /// A unified output format to be displayed on the websocket
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone, Deserialize)]
 pub struct UnifyOutput {
     pub id: String,
     pub organisation: String,
     pub title: String,
     pub description: String,
-    #[serde(serialize_with = "seralize_dt")]
-    pub time: DateTime<chrono::offset::FixedOffset>,
+    #[serde(serialize_with = "serialize_dt", deserialize_with = "deserialize_dt")]
+    pub time: DateTime<FixedOffset>,
     pub source: SourceKind, // This describes where the content was received from
     pub score: Option<f32>, // Score for importance of the news
 }
