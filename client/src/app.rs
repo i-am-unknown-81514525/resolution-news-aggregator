@@ -1,21 +1,24 @@
 use std::fmt::Display;
+use egui::{Color32, RichText};
+use epaint::CornerRadius;
 use uuid::Uuid;
 
 #[cfg(target_arch = "wasm32")]
 use web_sys::WebSocket;
-use common::unify::UnifyOutput;
+use common::unify::{SourceKind, UnifyOutput};
 use crate::schema::WindowConfig;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 
 struct Internal {
     #[cfg(target_arch = "wasm32")]
-    websocket: Option<WebSocket>,
+    pub websocket: Option<WebSocket>,
 }
 
 impl Internal {
     fn new() -> Self {
         Self {
+            #[cfg(target_arch = "wasm32")]
             websocket: None,
         }
     }
@@ -25,14 +28,14 @@ impl Internal {
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct App {
-    src: String,
+    pub src: String,
 
-    windows: Vec<WindowConfig>,
+    pub windows: Vec<WindowConfig>,
 
-    history: Vec<UnifyOutput>,
+    pub history: Vec<UnifyOutput>,
 
     #[serde(skip)] 
-    internal: Internal
+    pub internal: Internal
 }
 
 impl Default for App {
@@ -54,11 +57,13 @@ impl App {
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
+        let result;
         if let Some(storage) = cc.storage {
-            eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
+            result = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         } else {
-            Default::default()
+            result = Default::default();
         }
+        result
     }
 }
 
@@ -70,6 +75,29 @@ impl eframe::App for App {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        for window in self.windows.clone() {
+            egui::Window::new("News Panel").show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    for item in self.history.iter().clone() {
+                        egui::containers::Frame::new()
+                            .corner_radius(CornerRadius::same(6))
+                            .show(ui, |ui| {
+                            ui.hyperlink_to(item.title, item.link.clone());
+                            if item.description.len() > 0 {
+                                ui.label(&item.description);
+                            };
+                            let mut tiny_text = String::new();
+                            tiny_text.push_str(&item.organisation);
+                            if let SourceKind::Source(x) = item.source.clone() {
+                                tiny_text.push_str(&" - ");
+                                tiny_text.push_str(&x);
+                            }
+                            ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(3.0f32));
+                        }).inner
+                    }
+                }).inner
+            });
+        }
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
@@ -119,6 +147,7 @@ impl eframe::App for App {
         //         egui::warn_if_debug_build(ui);
         //     });
         // });
+
     }
 }
 

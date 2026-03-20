@@ -3,7 +3,7 @@
 
 mod app;
 pub mod schema;
-mod comp;
+// mod comp;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]

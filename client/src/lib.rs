@@ -2,6 +2,6 @@
 
 mod app;
 pub mod schema;
-mod comp;
+// mod comp;
 
 pub use app::App;
