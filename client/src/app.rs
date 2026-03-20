@@ -1,11 +1,15 @@
 use std::fmt::Display;
 use uuid::Uuid;
+
+#[cfg(target_arch = "wasm32")]
 use web_sys::WebSocket;
+use common::unify::UnifyOutput;
 use crate::schema::WindowConfig;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 
 struct Internal {
+    #[cfg(target_arch = "wasm32")]
     websocket: Option<WebSocket>,
 }
 
@@ -25,6 +29,8 @@ pub struct App {
 
     windows: Vec<WindowConfig>,
 
+    history: Vec<UnifyOutput>,
+
     #[serde(skip)] 
     internal: Internal
 }
@@ -34,6 +40,7 @@ impl Default for App {
         Self {
             src: "".to_string(),
             windows: vec![WindowConfig::default()],
+            history: Vec::new(),
             internal: Internal::new(),
         }
     }
@@ -65,6 +72,7 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
+
 
         // egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
         //     // The top panel is often a good place for a menu bar:
