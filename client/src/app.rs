@@ -1,20 +1,85 @@
+use std::fmt::Display;
+use uuid::Uuid;
+use web_sys::WebSocket;
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 
 struct Internal {
-    
+    websocket: Option<WebSocket>,
 }
 
 impl Internal {
     fn new() -> Self {
         Self {
-            
+            websocket: None,
         }
+    }
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize, Debug, Eq, PartialEq, Hash)]
+pub struct Coordinate {
+    x: u32,
+    y: u32,
+}
+
+impl Display for Coordinate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
+    }
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize, Debug, Eq, PartialEq, Hash)]
+pub struct Size {
+    x: u32,
+    y: u32,
+}
+
+impl Display for Size {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct WindowConfig {
+    uuid: Uuid,
+    coordinate: Coordinate,
+    size: Size
+}
+
+impl WindowConfig {
+    pub fn new(coordinate: Coordinate, size: Size) -> Self {
+        Self {
+            uuid: Uuid::now_v7(),
+            coordinate,
+            size
+        }
+    }
+}
+
+impl Default for WindowConfig {
+    fn default() -> Self {
+        Self {
+            uuid: Uuid::nil(),
+            coordinate: Coordinate {x: 0, y: 0},
+            size: Size {x:200, y:800}
+        }
+    }
+}
+
+impl WindowConfig {
+    pub fn with_uuid(&mut self) -> Self {
+        self.uuid = Uuid::now_v7();
+        *self
     }
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct App {
+    src: String,
+
+    windows: Vec<WindowConfig>,
 
     #[serde(skip)] 
     internal: Internal
@@ -23,6 +88,8 @@ pub struct App {
 impl Default for App {
     fn default() -> Self {
         Self {
+            src: "".to_string(),
+            windows: vec![WindowConfig::default()],
             internal: Internal::new(),
         }
     }
