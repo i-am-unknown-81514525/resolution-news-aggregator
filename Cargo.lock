@@ -2720,15 +2720,19 @@ dependencies = [
 name = "news-aggregator-client"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "eframe",
  "egui",
  "env_logger",
  "epaint",
+ "js-sys",
  "log",
  "news-aggregator-common",
  "serde",
  "serde-versioning",
+ "serde_json",
  "uuid",
+ "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
 ]

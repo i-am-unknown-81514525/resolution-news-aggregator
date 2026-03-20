@@ -1,25 +1,34 @@
 use std::fmt::Display;
 use egui::{Color32, RichText};
 use epaint::CornerRadius;
+use std::sync::mpsc::{Sender, Receiver, channel};
+use std::sync::{Arc, Mutex};
+use cfg_if::cfg_if;
 use uuid::Uuid;
 
 #[cfg(target_arch = "wasm32")]
-use web_sys::WebSocket;
+use crate::wasm_websocket::WasmWebsocket;
+
+
 use common::unify::{SourceKind, UnifyOutput};
-use crate::schema::WindowConfig;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 
 struct Internal {
     #[cfg(target_arch = "wasm32")]
-    pub websocket: Option<WebSocket>,
+    pub ws: Option<WasmWebsocket>,
+    pub sender: Sender<UnifyOutput>,
+    pub receiver: Arc<Mutex<Receiver<UnifyOutput>>>,
 }
 
 impl Internal {
     fn new() -> Self {
+        let (sender, receiver) = channel();
         Self {
             #[cfg(target_arch = "wasm32")]
-            websocket: None,
+            ws: None,
+            sender,
+            receiver: Arc::new(Mutex::new(receiver)),
         }
     }
 }
@@ -29,8 +38,6 @@ impl Internal {
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct App {
     pub src: String,
-
-    pub windows: Vec<WindowConfig>,
 
     pub history: Vec<UnifyOutput>,
 
@@ -42,7 +49,6 @@ impl Default for App {
     fn default() -> Self {
         Self {
             src: "".to_string(),
-            windows: vec![WindowConfig::default()],
             history: Vec::new(),
             internal: Internal::new(),
         }
@@ -75,14 +81,28 @@ impl eframe::App for App {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        for window in self.windows.clone() {
-            egui::Window::new("News Panel").show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    for item in self.history.iter().clone() {
-                        egui::containers::Frame::new()
-                            .corner_radius(CornerRadius::same(6))
-                            .show(ui, |ui| {
-                            ui.hyperlink_to(item.title, item.link.clone());
+        let mut update: Vec<UnifyOutput> = Vec::new();
+        cfg_if! {
+            if #[cfg(target_arch = "wasm32")] {
+                if self.internal.ws.is_none() {
+                    let ws = WasmWebsocket::new(&self.src, self.internal.sender.clone());
+                    self.internal.ws = Some(ws);
+                }
+            }
+        }
+        while let Ok(v) = self.internal.receiver.lock().unwrap().try_recv() {
+            update.push(v);
+        }
+        let has_update = update.len() > 0;
+        self.history.append(&mut update);
+
+        egui::Window::new("News Panel").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                for item in self.history.iter().clone() {
+                    egui::containers::Frame::new()
+                        .corner_radius(CornerRadius::same(6))
+                        .show(ui, |ui| {
+                            ui.hyperlink_to(item.title.clone(), item.link.clone());
                             if item.description.len() > 0 {
                                 ui.label(&item.description);
                             };
@@ -94,10 +114,14 @@ impl eframe::App for App {
                             }
                             ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(3.0f32));
                         }).inner
-                    }
-                }).inner
-            });
+                }
+            }).inner
+        });
+
+        if has_update {
+            ctx.request_repaint();
         }
+
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 

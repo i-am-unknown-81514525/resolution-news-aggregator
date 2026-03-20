@@ -2,7 +2,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 mod app;
-pub mod schema;
+#[cfg(target_arch = "wasm32")]
+mod wasm_websocket;
 // mod comp;
 
 // When compiling natively:
