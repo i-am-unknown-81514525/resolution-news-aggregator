@@ -103,6 +103,7 @@ pub struct UnifyOutput {
     pub time: DateTime<FixedOffset>,
     pub source: SourceKind, // This describes where the content was received from
     pub score: Option<f32>, // Score for importance of the news
+    pub link: String
 }
 
 impl UnifyOutput {

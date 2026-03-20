@@ -55,8 +55,8 @@ impl Default for WindowConfig {
 }
 
 impl WindowConfig {
-    pub fn with_uuid(&mut self) -> Self {
+    pub fn with_uuid(mut self) -> Self {
         self.uuid = Uuid::now_v7();
-        *self
+        self
     }
 }

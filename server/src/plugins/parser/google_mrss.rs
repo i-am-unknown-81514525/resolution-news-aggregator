@@ -32,6 +32,7 @@ impl GoogleMrssItem {
             time: self.publish_date,
             score: None,
             source: SourceKind::Source("Google News".to_string()),
+            link: self.link.clone()
         }
     }
 }

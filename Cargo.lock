@@ -2723,7 +2723,9 @@ dependencies = [
  "eframe",
  "egui",
  "env_logger",
+ "epaint",
  "log",
+ "news-aggregator-common",
  "serde",
  "serde-versioning",
  "uuid",
@@ -3979,9 +3981,9 @@ dependencies = [
 
 [[package]]
 name = "serde-versioning"
-version = "1.0.219"
+version = "1.0.228-fix.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "164eee2986f34dc29687b373f23204a66c3f4e1ae86c51987f726fabf59326a8"
+checksum = "654a9000ddb8710d7d325c640fffa7889a459b82a23a057f584bdca46184459a"
 dependencies = [
  "proc-macro2",
  "quote",

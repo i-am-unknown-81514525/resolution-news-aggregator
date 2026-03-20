@@ -35,8 +35,24 @@ impl Default for WindowConfig {
 }
 
 impl WindowConfig {
-    pub fn with_uuid(&mut self) -> Self {
+    pub fn with_uuid(mut self) -> Self {
         self.uuid = Uuid::now_v7();
-        *self
+        self
     }
 }
+
+impl TryFrom<crate::schema::v0::WindowConfig> for WindowConfig {
+    type Error = ();
+
+    fn try_from(value: crate::schema::v0::WindowConfig) -> Result<Self, Self::Error> {
+        Ok(
+            Self {
+                uuid: value.uuid,
+                coordinate: value.coordinate,
+                size: value.size,
+                search: None
+            }
+        )
+    }
+}
+
