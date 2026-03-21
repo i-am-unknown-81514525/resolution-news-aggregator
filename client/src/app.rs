@@ -19,12 +19,16 @@ use crate::dt::format_fuzzy_dist;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 
+struct Count(Option<u32>);
+
 struct Internal {
     #[cfg(target_arch = "wasm32")]
     pub ws: Option<WasmWebsocket>,
     pub sender: Sender<UnifyOutput>,
     pub receiver: Arc<Mutex<Receiver<UnifyOutput>>>,
-    pub initial: bool
+    pub initial: bool,
+    pub page: Arc<RwLock<Count>>,
+    pub last_update: chrono::DateTime<chrono::FixedOffset>
 }
 
 impl Internal {
@@ -35,7 +39,9 @@ impl Internal {
             ws: None,
             sender,
             receiver: Arc::new(Mutex::new(receiver)),
-            initial: true
+            initial: true,
+            page: Arc::new(RwLock::new(Count(Some(0)))),
+            last_update: chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap())
         }
     }
 }
@@ -101,22 +107,58 @@ impl App {
             }
         });
 
-        let mut history: String = result.src.clone();
-        history.push_str(&"/api/history");
-        let history_rw = result.history.clone();
-        ehttp::fetch(ehttp::Request::get(history), move |result| {
-            if let Ok(response) = result {
-                if let Some(data) = response.text() {
-                    let out: Vec<UnifyOutput> = serde_json::from_str(data).unwrap();
-                    for item in out {
-                        history_rw.write().unwrap().entry(item.id.clone()).or_insert(item);
-                    }
-                }
-            }
-        });
+        // let mut history: String = result.src.clone();
+        // history.push_str(&"/api/history");
+        // let history_rw = result.history.clone();
+        // ehttp::fetch(ehttp::Request::get(history), move |result| {
+        //     if let Ok(response) = result {
+        //         if let Some(data) = response.text() {
+        //             let out: Vec<UnifyOutput> = serde_json::from_str(data).unwrap();
+        //             for item in out {
+        //                 history_rw.write().unwrap().entry(item.id.clone()).or_insert(item);
+        //             }
+        //         }
+        //     }
+        // });
+        update_feed(cc.egui_ctx.clone(), result.history.clone(), result.internal.page.clone(), &result.src);
         result
     }
 }
+
+fn update_feed(ctx: egui::Context, rw: Arc<RwLock<IndexMap<String, UnifyOutput>>>, counter: Arc<RwLock<Count>>, path: &str) {
+    let page_num: u32 = {
+        let mut lock = counter.write().unwrap();
+        let v = match lock.0 {
+            None => return (),
+            Some(v) => v,
+        };
+        lock.0 = None;
+        v
+    };
+    let mut history: String = path.to_string();
+    history.push_str(&"/api/history");
+    history.push_str(&format!("?page={}", page_num));
+    let counter_clone = counter.clone();
+    ehttp::fetch(ehttp::Request::get(history), move |result| {
+        if let Ok(response) = result {
+            if let Some(data) = response.text() {
+                let out: Vec<UnifyOutput> = serde_json::from_str(data).unwrap();
+                if out.len() > 0 {
+                    let mut lock = counter_clone.write().unwrap();
+                    lock.0 = Some(page_num + 1);
+                } else {
+                    let mut lock = counter_clone.write().unwrap();
+                    lock.0 = None;
+                }
+                for item in out {
+                    rw.write().unwrap().entry(item.id.clone()).or_insert(item);
+                }
+                ctx.request_repaint();
+            }
+        }
+    });
+}
+
 
 impl eframe::App for App {
     /// Called by the framework to save state before shutdown.
@@ -137,6 +179,7 @@ impl eframe::App for App {
                 }
             }
         }
+        update_feed(ctx.clone(), self.history.clone(), self.internal.page.clone(), &self.src);
         if self.internal.initial {
             self.internal.initial = false;
             ctx.request_repaint();
@@ -149,8 +192,19 @@ impl eframe::App for App {
         for item in update {
             self.history.write().unwrap().entry(item.id.clone()).or_insert(item);
         }
+        if has_update {
+            self.internal.last_update = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
+        } else {
+            let curr = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
+            if (curr - self.internal.last_update).as_seconds_f32() > 600f32 {
+                self.internal.ws = None; // Reconnect
+                self.internal.page.write().unwrap().0 = Some(0);
+                self.internal.last_update = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
+            }
+        }
 
         self.history.write().unwrap().sort_by(|k1, v1, k2, v2| v1.time.timestamp_micros().cmp(&v2.time.timestamp_micros()));
+
 
         egui::Window::new("News Panel")
             .scroll([false, true])
