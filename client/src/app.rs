@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::fmt::Display;
 use egui::{Align, Color32, RichText};
 use epaint::{CornerRadius, FontFamily, FontId};
@@ -8,14 +7,15 @@ use std::time::Duration;
 use cfg_if::cfg_if;
 use eframe::CreationContext;
 use egui::scroll_area::ScrollBarVisibility;
-use epaint::text::{FontData, FontDefinitions, LayoutJob, TextFormat, TextWrapping};
-use uuid::Uuid;
+use epaint::text::{LayoutJob, TextFormat, TextWrapping};
+use indexmap::IndexMap;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_websocket::WasmWebsocket;
 
 
 use common::unify::{SourceKind, UnifyOutput};
+use crate::dt::format_fuzzy_dist;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 
@@ -46,7 +46,7 @@ impl Internal {
 pub struct App {
     pub src: String,
 
-    pub history: Vec<UnifyOutput>,
+    pub history: IndexMap<String, UnifyOutput>,
 
     #[serde(skip)] 
     pub internal: Internal
@@ -56,7 +56,7 @@ impl Default for App {
     fn default() -> Self {
         Self {
             src: "".to_string(),
-            history: Vec::new(),
+            history: IndexMap::new(),
             internal: Internal::new(),
         }
     }
@@ -132,14 +132,19 @@ impl eframe::App for App {
             update.push(v);
         }
         let has_update = update.len() > 0;
-        self.history.append(&mut update);
+        for item in update {
+            self.history.entry(item.id.clone()).or_insert(item);
+        }
+
+        self.history.sort_by(|k1, v1, k2, v2| v1.time.timestamp_micros().cmp(&v2.time.timestamp_micros()));
 
         egui::Window::new("News Panel")
             .scroll([false, true])
             .scroll_bar_visibility(ScrollBarVisibility::VisibleWhenNeeded)
             .show(ctx, |ui| {
             ui.vertical(|ui| {
-                for item in self.history.iter().clone() {
+                for item in self.history.iter().map(|x| x.1)
+                {
                     egui::containers::Frame::new()
                         .corner_radius(CornerRadius::same(6))
                         .show(ui, |ui| {
@@ -168,10 +173,18 @@ impl eframe::App for App {
                                 let mut tiny_text = String::new();
                                 tiny_text.push_str(&item.organisation);
                                 if let SourceKind::Source(x) = item.source.clone() {
-                                    tiny_text.push_str(&" - ");
+                                    tiny_text.push_str(&" via ");
                                     tiny_text.push_str(&x);
-                                }
-                                ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(9.0f32));
+                                };
+                                ui.horizontal(|ui| {
+                                    ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(9.0f32));
+                                    ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
+                                        let time = ui.label(format_fuzzy_dist(item.time));
+                                        if time.clicked() {
+                                            ctx.copy_text(item.time.to_rfc3339());
+                                        }
+                                    });
+                                });
                             }).inner
                         }).inner
                 }

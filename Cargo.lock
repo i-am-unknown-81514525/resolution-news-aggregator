@@ -2735,11 +2735,13 @@ name = "news-aggregator-client"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
+ "chrono",
  "eframe",
  "egui",
  "ehttp",
  "env_logger",
  "epaint",
+ "indexmap",
  "js-sys",
  "log",
  "news-aggregator-common",
