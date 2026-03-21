@@ -29,28 +29,35 @@ impl WasmWebsocket {
         let inner = Arc::new(Mutex::new(sender.clone()));
         let onmessage_callback = Closure::<dyn FnMut(_)>::new(move |e: MessageEvent| {
             // Handle difference Text/Binary,...
+            let string: String;
             if let Ok(abuf) = e.data().dyn_into::<js_sys::ArrayBuffer>() {
                 console_log!("message event, received arraybuffer: {:?}", abuf);
                 let array = js_sys::Uint8Array::new(&abuf);
-                let string = match String::from_utf8(array.to_vec()) {
+                string = match String::from_utf8(array.to_vec()) {
                     Ok(s) => s,
                     Err(e) => {
                         console_log!("Fail to convert to utf-8");
                         return;
                     }
                 };
-                let content: UnifyOutput = match serde_json::from_str(&string) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        console_log!("Fail to deserialize json");
-                        return;
-                    }
-                };
-                match inner.lock().unwrap().send(content) {
-                    Ok(_) => {},
-                    Err(e) => {
-                        console_log!("Fail to contact frontend")
-                    }
+
+            }
+            else if let Ok(s) = e.data().dyn_into::<js_sys::JsString>() {
+                string = s.into();
+            } else {
+                return;
+            }
+            let content: UnifyOutput = match serde_json::from_str(&string) {
+                Ok(s) => s,
+                Err(e) => {
+                    console_log!("Fail to deserialize json");
+                    return;
+                }
+            };
+            match inner.lock().unwrap().send(content) {
+                Ok(_) => {},
+                Err(e) => {
+                    console_log!("Fail to contact frontend")
                 }
             }
         });

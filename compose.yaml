@@ -16,3 +16,8 @@ services:
     environment:
       - RUST_LOG=debug
     restart: unless-stopped
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    restart: unless-stopped

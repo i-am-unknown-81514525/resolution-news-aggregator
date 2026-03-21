@@ -3,11 +3,23 @@ http:
     backend-router:
       rule: "PathPrefix(`/api`) || PathPrefix(`/ws`)"
       service: backend-service
+      priority: 100
       entryPoints:
         - web
+    frontend-router:
+      rule: "PathPrefix(`/`) || PathPrefix(`/ws`)"
+      service: frontend-service
+      priority: 1
+      entryPoints:
+        - web
+
 
   services:
     backend-service:
       loadBalancer:
         servers:
           - url: "http://backend:3000"
+    frontend-service:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:80"

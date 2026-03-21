@@ -85,7 +85,9 @@ impl eframe::App for App {
         cfg_if! {
             if #[cfg(target_arch = "wasm32")] {
                 if self.internal.ws.is_none() {
-                    let ws = WasmWebsocket::new(&self.src, self.internal.sender.clone());
+                    let mut path = String::from(&self.src);
+                    path.push_str("/ws");
+                    let ws = WasmWebsocket::new(&path, self.internal.sender.clone());
                     self.internal.ws = Some(ws);
                 }
             }
@@ -102,17 +104,19 @@ impl eframe::App for App {
                     egui::containers::Frame::new()
                         .corner_radius(CornerRadius::same(6))
                         .show(ui, |ui| {
-                            ui.hyperlink_to(item.title.clone(), item.link.clone());
-                            if item.description.len() > 0 {
-                                ui.label(&item.description);
-                            };
-                            let mut tiny_text = String::new();
-                            tiny_text.push_str(&item.organisation);
-                            if let SourceKind::Source(x) = item.source.clone() {
-                                tiny_text.push_str(&" - ");
-                                tiny_text.push_str(&x);
-                            }
-                            ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(3.0f32));
+                            ui.horizontal(|ui| {
+                                ui.hyperlink_to(item.title.clone(), item.link.clone());
+                                if item.description.len() > 0 {
+                                    ui.label(&item.description);
+                                };
+                                let mut tiny_text = String::new();
+                                tiny_text.push_str(&item.organisation);
+                                if let SourceKind::Source(x) = item.source.clone() {
+                                    tiny_text.push_str(&" - ");
+                                    tiny_text.push_str(&x);
+                                }
+                                ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(3.0f32));
+                            }).inner
                         }).inner
                 }
             }).inner
