@@ -209,6 +209,7 @@ impl eframe::App for App {
         if has_update {
             ctx.request_repaint();
         }
+        ctx.request_repaint_after(Duration::new(15, 0)); // Repaint every 15s to update time
 
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
