@@ -1,7 +1,7 @@
 mod google_rss_search;
 mod hacker_news;
 
-use crate::plugins::net::rss_fetch::RssFetchError;
+pub(crate) use crate::plugins::net::rss_fetch::RssFetchError;
 use crate::plugins::source::google_rss_search::GoogleRssSearch;
 use crate::value_enum::{EnumFromStr, value_enum};
 use common::unify::ToVecUnify;

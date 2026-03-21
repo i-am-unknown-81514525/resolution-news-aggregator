@@ -19,17 +19,19 @@ use crate::value_enum::EnumFromStr;
 use axum::body::Body;
 use axum::extract::ws::Utf8Bytes;
 use axum::extract::{ConnectInfo, Query, State};
-use common::unify::{ToVecUnify, UnifyOutputRaw};
+use common::unify::{ToVecUnify, UnifyOutput, UnifyOutputRaw};
 use plugins::net::rss_fetch::get_raw;
 use serde::Deserialize;
 use sqlx::query;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
+use thiserror::Error;
 use tokio::sync::{Mutex, RwLock};
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use crate::config::{Config};
 
 struct ServerState {
     // conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
@@ -44,6 +46,48 @@ impl ServerState {
             history: Arc::new(RwLock::new(IndexMap::with_capacity(1000))),
         }
     }
+}
+
+
+#[derive(Error, Debug)]
+pub(crate) enum ApplicationError {
+    #[error("Missing Rss Type {0}")]
+    MissingRssType(String),
+    #[error("Failed to obtain RSS URL (rss_type: {0}, query: {1}) ")]
+    FailedToObtainRssUrl(String, String),
+    #[error("Invalid URL {0}")]
+    InvalidUrl(String),
+    #[error("RssFetchError")]
+    RssFetchError(#[from] plugins::source::RssFetchError),
+}
+
+pub async fn fetch_with_config(config: &Config, span: Option<tracing::Span>) -> Result<Vec<UnifyOutput>, ApplicationError> {
+    let span = span.unwrap_or(tracing::info_span!("fetch"));
+    let _guard = span.enter();
+    let kind = RSSSourceType::enum_str(&config.rss_type).map_err(
+        |e| {
+            tracing::warn!("Missing RSS type: {}", e);
+            ApplicationError::MissingRssType(config.rss_type.clone())
+        }
+    )?;
+    let source = remap(kind);
+    let url = source.get_url(&config.query).ok_or_else(|| {
+        tracing::warn!("Failed to obtain RSS URL (rss_type: {}, query: {})", config.rss_type, config.query);
+        return ApplicationError::FailedToObtainRssUrl(config.rss_type.clone(), config.query.clone());
+    })?;
+    let content = get_raw(url.parse().map_err(|e| {
+        tracing::warn!("Failed to parse url: {}", e);
+        ApplicationError::InvalidUrl(url.clone())
+        
+    })?).await.map_err(|e| {
+        tracing::warn!("Request failed: {}", e);
+        ApplicationError::RssFetchError(e)
+    })?;
+    let result = source.deserialize(&content).map_err(|e| {
+        tracing::warn!("Failed to deserialize: {}", e);
+        ApplicationError::RssFetchError(e)
+    })?;
+    Ok(result.to_vec_unify())
 }
 
 pub async fn background_fetching(
