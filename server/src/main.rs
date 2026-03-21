@@ -13,16 +13,14 @@ use axum_extra::TypedHeader;
 use indexmap::IndexMap;
 use tokio;
 
-use crate::plugins::parser::common::DocumentID;
 use crate::plugins::source::{RSSSource, RSSSourceType, remap};
 use crate::value_enum::EnumFromStr;
 use axum::body::Body;
 use axum::extract::ws::Utf8Bytes;
 use axum::extract::{ConnectInfo, Query, State};
-use common::unify::{ToVecUnify, UnifyOutput, UnifyOutputRaw};
+use common::unify::{UnifyOutput, UnifyOutputRaw};
 use plugins::net::rss_fetch::get_raw;
 use serde::Deserialize;
-use sqlx::query;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;

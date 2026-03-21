@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use thiserror::Error;
 
 #[derive(Deserialize, Clone)]
 pub struct Config {

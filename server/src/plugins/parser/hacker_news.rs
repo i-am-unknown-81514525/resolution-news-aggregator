@@ -1,8 +1,7 @@
 use std::str::FromStr;
-use crate::plugins::parser::common::DocumentID;
 use crate::plugins::parser::utils::string_as_rfc2822;
 use common::unify::{SourceKind, ToVecUnify, UnifyOutput};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use url::Url;
 
 #[derive(Deserialize, Debug)]
