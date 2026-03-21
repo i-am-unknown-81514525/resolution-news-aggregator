@@ -140,13 +140,14 @@ impl eframe::App for App {
 
         egui::Window::new("News Panel")
             .scroll([false, true])
-            .scroll_bar_visibility(ScrollBarVisibility::VisibleWhenNeeded)
+            .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
             .show(ctx, |ui| {
             ui.vertical(|ui| {
-                for item in self.history.iter().map(|x| x.1)
+                for item in self.history.iter().map(|x| x.1).rev()
                 {
                     egui::containers::Frame::new()
                         .corner_radius(CornerRadius::same(6))
+                        .outer_margin(5.0)
                         .show(ui, |ui| {
                             ui.vertical(|ui| {
                                 //ui.hyperlink_to(item.title.clone(), item.link.clone());
