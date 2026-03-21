@@ -78,55 +78,50 @@ pub async fn fetch_with_config(config: &Config, span: Option<tracing::Span>) -> 
     let content = get_raw(url.parse().map_err(|e| {
         tracing::warn!("Failed to parse url: {}", e);
         ApplicationError::InvalidUrl(url.clone())
-        
+
     })?).await.map_err(|e| {
         tracing::warn!("Request failed: {}", e);
         ApplicationError::RssFetchError(e)
     })?;
-    let result = source.deserialize(&content).map_err(|e| {
+    source.get_unify(&content).map_err(|e| {
         tracing::warn!("Failed to deserialize: {}", e);
         ApplicationError::RssFetchError(e)
-    })?;
-    Ok(result.to_vec_unify())
+    })
 }
 
 pub async fn background_fetching(
+    config: &Config,
     sender: tokio::sync::broadcast::Sender<UnifyOutputRaw>,
     state: Arc<Mutex<ServerState>>,
 ) -> () {
     // testing currently - should be reading config file in future instead
     loop {
         let span = tracing::info_span!("background_fetching");
-        let _guard = span.enter();
-        let kind = RSSSourceType::enum_str("GoogleRssSearch").unwrap();
-        let source = remap(kind);
-        let query =
-            "(oil price OR OPEC OR \"natural gas\" OR \"crude oil\" OR WTI OR Brent) when:1h";
-        let url = source.get_url(query).unwrap();
-        let content = get_raw((&url).parse().unwrap()).await.unwrap();
-        let result = source.deserialize(&content).unwrap();
-        let outputs = result.to_vec_unify();
-        info!("Pushing {} outputs", outputs.len());
-        for output in outputs {
-            let raw = output.to_raw();
-            if !state
-                .lock()
-                .await
-                .history
-                .clone()
-                .read()
-                .await
-                .contains_key(&output.id)
-            {
-                let ptr = state.lock().await.history.clone();
-                let mut lock = ptr.write().await;
-                lock.entry(output.id.clone())
-                    .or_insert(Arc::new(raw.clone()));
+
+        let outputs = fetch_with_config(config, Some(span)).await;
+        if let Ok(outputs) = outputs {
+            info!("Pushing {} outputs", outputs.len());
+            for output in outputs {
+                let raw = output.to_raw();
+                if !state
+                    .lock()
+                    .await
+                    .history
+                    .clone()
+                    .read()
+                    .await
+                    .contains_key(&output.id)
+                {
+                    let ptr = state.lock().await.history.clone();
+                    let mut lock = ptr.write().await;
+                    lock.entry(output.id.clone())
+                        .or_insert(Arc::new(raw.clone()));
+                }
+                let recv_count = sender.send(raw).unwrap_or(0);
+                info!("Pushed document {} to {} receivers", output.id, recv_count);
             }
-            let recv_count = sender.send(raw).unwrap_or(0);
-            info!("Pushed document {} to {} receivers", output.id, recv_count);
         }
-        tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
+        tokio::time::sleep(Duration::from_secs(config.update_interval as u64)).await;
     }
 }
 
@@ -134,10 +129,17 @@ pub async fn background_fetching(
 async fn main() {
     let (sender, receiver) = tokio::sync::broadcast::channel::<UnifyOutputRaw>(1024);
     let state = Arc::new(Mutex::new(ServerState::new(receiver)));
-    let _clone = state.clone();
-    tokio::spawn(async move {
-        background_fetching(sender, _clone).await;
-    });
+
+    let config_str = String::from_utf8(std::fs::read("config.toml").unwrap()).unwrap();
+    let configs: crate::config::Configs = toml::from_str(&config_str).unwrap();
+    for config in configs.configs {
+        let _clone = state.clone();
+        let sender_clone = sender.clone();
+        let conf_clone = config.clone();
+        tokio::spawn(async move {
+            background_fetching(&conf_clone, sender_clone, _clone).await;
+        });
+    }
     let _clone = state.clone();
     tracing_subscriber::registry()
         .with(

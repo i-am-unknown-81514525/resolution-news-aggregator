@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use thiserror::Error;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Config {
     #[serde(rename = "type")]
     pub(crate) rss_type: String,
@@ -9,7 +9,7 @@ pub struct Config {
     pub(crate) update_interval: u16
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Configs {
     #[serde(deserialize_with = "warn_incorrect", rename = "config")]
     pub(crate) configs: Vec<Config>

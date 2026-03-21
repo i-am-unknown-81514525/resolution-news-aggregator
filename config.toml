@@ -1,0 +1,9 @@
+[[config]]
+type = "GoogleRssSearch"
+query = "(war OR disruption OR breaking OR earthquake OR WTI) when:1d"
+update_interval = 300
+
+[[config]]
+type = "HackerNews"
+query = ""
+update_interval = 300

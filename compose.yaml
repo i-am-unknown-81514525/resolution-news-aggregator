@@ -16,6 +16,8 @@ services:
     environment:
       - RUST_LOG=debug
     restart: unless-stopped
+    volumes:
+      - ./config.toml:/app/config.toml:ro
   frontend:
     build:
       context: .
