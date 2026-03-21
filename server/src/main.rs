@@ -179,7 +179,7 @@ fn default_page() -> u64 {
     0
 }
 fn default_size() -> u64 {
-    100
+    1000
 }
 
 #[axum::debug_handler]
@@ -187,11 +187,11 @@ async fn history_handler(
     State(state): State<Arc<Mutex<ServerState>>>,
     Query(query): Query<Pagination>,
 ) -> Response<Body> {
-    if query.size > 100 || query.size == 0 {
+    if query.size > 1000 || query.size == 0 {
         return Response::builder()
             .status(400)
             .body(Body::from(format!(
-                "Query size must be less than or equal to 100 and above 0, received {}",
+                "Query size must be less than or equal to 1000 and above 0, received {}",
                 query.size
             )))
             .unwrap();
