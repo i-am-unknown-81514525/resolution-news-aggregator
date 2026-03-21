@@ -7,8 +7,9 @@ use crate::value_enum::{EnumFromStr, value_enum};
 use common::unify::{ToVecUnify, UnifyOutput};
 use serde::Deserialize;
 use serde_xml_rs::from_str;
+use crate::plugins::source::hacker_news::HackerNews;
 
-value_enum!(RSSSourceType, DirectRss, GoogleWrap, GoogleRssSearch);
+value_enum!(RSSSourceType, GoogleRssSearch, HackerNews);
 
 #[async_trait::async_trait]
 pub(crate) trait RSSSource: Send + Sync {
@@ -29,6 +30,6 @@ pub(crate) trait RSSSource: Send + Sync {
 pub(crate) fn remap(t: RSSSourceType) -> impl RSSSource {
     match t {
         RSSSourceType::GoogleRssSearch => GoogleRssSearch {},
-        _ => todo!(),
+        RSSSourceType::HackerNews => HackerNews {}
     }
 }
