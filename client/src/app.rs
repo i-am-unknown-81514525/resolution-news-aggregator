@@ -9,6 +9,7 @@ use eframe::CreationContext;
 use egui::scroll_area::ScrollBarVisibility;
 use epaint::text::{LayoutJob, TextFormat, TextWrapping};
 use indexmap::IndexMap;
+use crate::utils::truncate_text;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_websocket::WasmWebsocket;
@@ -237,7 +238,7 @@ impl eframe::App for App {
                                     ).open_in_new_tab(true)
                                 );
                                 if item.description.len() > 0 {
-                                    ui.label(egui::RichText::new(item.description.clone()).size(11.0f32));
+                                    ui.label(egui::RichText::new(truncate_text(&item.description, 600)).size(11.0f32));
                                 };
                                 let mut tiny_text = String::new();
                                 tiny_text.push_str(&item.organisation);
