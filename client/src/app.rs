@@ -2,7 +2,7 @@ use std::fmt::Display;
 use egui::{Align, Color32, RichText};
 use epaint::{CornerRadius, FontFamily, FontId};
 use std::sync::mpsc::{Sender, Receiver, channel};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use cfg_if::cfg_if;
 use eframe::CreationContext;
@@ -46,7 +46,7 @@ impl Internal {
 pub struct App {
     pub src: String,
 
-    pub history: IndexMap<String, UnifyOutput>,
+    pub history: Arc<RwLock<IndexMap<String, UnifyOutput>>>,
 
     #[serde(skip)] 
     pub internal: Internal
@@ -56,7 +56,7 @@ impl Default for App {
     fn default() -> Self {
         Self {
             src: "".to_string(),
-            history: IndexMap::new(),
+            history: Arc::new(RwLock::new(IndexMap::new())),
             internal: Internal::new(),
         }
     }
@@ -69,7 +69,7 @@ impl App {
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
-        let result;
+        let result: App;
         if let Some(storage) = cc.storage {
             result = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         } else {
@@ -98,6 +98,20 @@ impl App {
 
                 ctx.set_fonts(fonts);
                 ctx.request_repaint();
+            }
+        });
+
+        let mut history: String = result.src.clone();
+        history.push_str(&"/api/history");
+        let history_rw = result.history.clone();
+        ehttp::fetch(ehttp::Request::get(history), move |result| {
+            if let Ok(response) = result {
+                if let Some(data) = response.text() {
+                    let out: Vec<UnifyOutput> = serde_json::from_str(data).unwrap();
+                    for item in out {
+                        history_rw.write().unwrap().entry(item.id.clone()).or_insert(item);
+                    }
+                }
             }
         });
         result
@@ -133,17 +147,17 @@ impl eframe::App for App {
         }
         let has_update = update.len() > 0;
         for item in update {
-            self.history.entry(item.id.clone()).or_insert(item);
+            self.history.write().unwrap().entry(item.id.clone()).or_insert(item);
         }
 
-        self.history.sort_by(|k1, v1, k2, v2| v1.time.timestamp_micros().cmp(&v2.time.timestamp_micros()));
+        self.history.write().unwrap().sort_by(|k1, v1, k2, v2| v1.time.timestamp_micros().cmp(&v2.time.timestamp_micros()));
 
         egui::Window::new("News Panel")
             .scroll([false, true])
             .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
             .show(ctx, |ui| {
             ui.vertical(|ui| {
-                for item in self.history.iter().map(|x| x.1).rev()
+                for item in self.history.read().unwrap().iter().map(|x| x.1).rev().collect::<Vec<&UnifyOutput>>()
                 {
                     egui::containers::Frame::new()
                         .corner_radius(CornerRadius::same(6))
