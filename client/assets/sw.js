@@ -1,9 +1,7 @@
 var cacheName = 'egui-news-agg';
 var filesToCache = [
     './',
-    './index.html',
-    './new-aggregator-client_bg.wasm',
-    './new-aggregator-client.js'
+    './index.html'
 ];
 
 self.addEventListener('install', (event) => {
@@ -15,17 +13,15 @@ self.addEventListener('install', (event) => {
             const response = await fetch('./index.html');
             const html = await response.text();
 
-            // 2. Regex to find the hashed .js and .wasm files Trunk created
-            // It searches for strings like "news-aggregator-client-f1e2d3..._bg.wasm"
-            const hashRegex = /"([^"]+\.[a-f0-9]{16}(?:_bg)?\.(?:js|wasm|css))"/g;
+            const hashRegex = /"(news-aggregator-client-[a-f0-9]{16}(?:_bg)?\.(?:js|wasm|css))"/g;
+
             let match;
-            const assetsToCache = ['./', './index.html'];
+            const assetsToCache = [...filesToCache];
 
             while ((match = hashRegex.exec(html)) !== null) {
-                assetsToCache.push(match[1]); // match[1] is the captured filename
+                assetsToCache.push(`./${match[1]}`);
             }
 
-            // 3. Cache the newly discovered assets
             return cache.addAll(assetsToCache);
         })()
     );
@@ -35,6 +31,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
     event.respondWith(
         caches.match(event.request).then((response) => {
+            // Return cached version, or fetch from network if missing
             return response || fetch(event.request);
         })
     );

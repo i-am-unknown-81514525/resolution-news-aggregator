@@ -99,12 +99,12 @@ impl eframe::App for App {
         self.history.append(&mut update);
 
         egui::Window::new("News Panel").show(ctx, |ui| {
-            ui.horizontal(|ui| {
+            ui.vertical(|ui| {
                 for item in self.history.iter().clone() {
                     egui::containers::Frame::new()
                         .corner_radius(CornerRadius::same(6))
                         .show(ui, |ui| {
-                            ui.horizontal(|ui| {
+                            ui.vertical(|ui| {
                                 ui.hyperlink_to(item.title.clone(), item.link.clone());
                                 if item.description.len() > 0 {
                                     ui.label(&item.description);
@@ -115,7 +115,7 @@ impl eframe::App for App {
                                     tiny_text.push_str(&" - ");
                                     tiny_text.push_str(&x);
                                 }
-                                ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(3.0f32));
+                                ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(9.0f32));
                             }).inner
                         }).inner
                 }
