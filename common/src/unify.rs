@@ -29,6 +29,7 @@ where
 
 #[derive(Debug, Clone)]
 pub enum SourceKind {
+    LinkedSource(String, String),
     Source(String),
     Origin,
     Unknown
@@ -40,6 +41,7 @@ impl Serialize for SourceKind {
         S: Serializer,
     {
         match self {
+            SourceKind::LinkedSource(s, l) => serializer.serialize_str(&format!("__linked__::::new_agg::::{}::::new_agg::::{}", s, l)),
             SourceKind::Source(s) => serializer.serialize_str(s),
             SourceKind::Origin => serializer.serialize_str("__special_origin__"),
             SourceKind::Unknown => serializer.serialize_unit(),
@@ -67,7 +69,15 @@ impl<'de> Deserialize<'de> for SourceKind {
             {
                 match value {
                     "__special_origin__" => Ok(SourceKind::Origin),
-                    s => Ok(SourceKind::Source(s.to_owned())),
+                    s => {
+                        if let Some(inner) = s.strip_prefix("__linked__::::new_agg::::") {
+                            let x = inner.split("::::new_agg::::").collect::<Vec<&str>>();
+                            if x.len() == 2 {
+                                return Ok(SourceKind::LinkedSource(x[0].to_owned(), x[1].to_owned()));
+                            }
+                        }
+                        Ok(SourceKind::Source(s.to_owned()))
+                    }
                 }
             }
 

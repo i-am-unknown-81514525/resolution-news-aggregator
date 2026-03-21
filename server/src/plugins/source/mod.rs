@@ -1,10 +1,12 @@
 mod google_rss_search;
+mod hacker_news;
 
 use crate::plugins::net::rss_fetch::RssFetchError;
 use crate::plugins::source::google_rss_search::GoogleRssSearch;
 use crate::value_enum::{EnumFromStr, value_enum};
 use common::unify::ToVecUnify;
 use serde::Deserialize;
+use serde_xml_rs::from_str;
 
 value_enum!(RSSSourceType, DirectRss, GoogleWrap, GoogleRssSearch);
 
@@ -13,7 +15,10 @@ pub(crate) trait RSSSource: Send + Sync {
     where
         Self: 'a;
     fn get_url(&self, value: &str) -> Option<String>;
-    fn deserialize(&self, content: &str) -> Result<Self::Deserialize<'_>, RssFetchError>;
+    fn deserialize(&self, content: &str) -> Result<Self::Deserialize<'_>, RssFetchError> {
+        let parsed: Self::Deserialize = from_str(content).map_err(|e| RssFetchError::SerdeXmlParseError(e))?;
+        Ok(parsed)
+    }
 }
 
 pub(crate) fn remap(t: RSSSourceType) -> impl RSSSource {

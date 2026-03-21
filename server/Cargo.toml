@@ -27,4 +27,5 @@ thiserror = "2"
 reqwest-hickory-resolver = "0.3.0"
 common = { path = "../common/", package = "news-aggregator-common"}
 indexmap = "2.13.0"
+url = "2.5.8"
 

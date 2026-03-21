@@ -190,9 +190,16 @@ impl eframe::App for App {
                                 if let SourceKind::Source(x) = item.source.clone() {
                                     tiny_text.push_str(&" via ");
                                     tiny_text.push_str(&x);
-                                };
+                                } else if let SourceKind::LinkedSource(x, _) = item.source.clone() {
+                                    tiny_text.push_str(&" via ");
+                                    tiny_text.push_str(&x);
+                                }
                                 ui.horizontal(|ui| {
-                                    ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(9.0f32));
+                                    if let SourceKind::LinkedSource(_, l) = item.source.clone() {
+                                        ui.hyperlink_to(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(9.0f32), l);
+                                    } else {
+                                        ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(9.0f32));
+                                    }
                                     ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
                                         let time = ui.label(format_fuzzy_dist(item.time));
                                         if time.clicked() {
