@@ -1,9 +1,14 @@
+use std::collections::BTreeMap;
 use std::fmt::Display;
-use egui::{Color32, RichText};
-use epaint::CornerRadius;
+use egui::{Align, Color32, RichText};
+use epaint::{CornerRadius, FontFamily, FontId};
 use std::sync::mpsc::{Sender, Receiver, channel};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use cfg_if::cfg_if;
+use eframe::CreationContext;
+use egui::scroll_area::ScrollBarVisibility;
+use epaint::text::{FontData, FontDefinitions, LayoutJob, TextFormat, TextWrapping};
 use uuid::Uuid;
 
 #[cfg(target_arch = "wasm32")]
@@ -19,6 +24,7 @@ struct Internal {
     pub ws: Option<WasmWebsocket>,
     pub sender: Sender<UnifyOutput>,
     pub receiver: Arc<Mutex<Receiver<UnifyOutput>>>,
+    pub initial: bool
 }
 
 impl Internal {
@@ -29,6 +35,7 @@ impl Internal {
             ws: None,
             sender,
             receiver: Arc::new(Mutex::new(receiver)),
+            initial: true
         }
     }
 }
@@ -54,10 +61,9 @@ impl Default for App {
         }
     }
 }
-
 impl App {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &CreationContext) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -69,6 +75,31 @@ impl App {
         } else {
             result = Default::default();
         }
+        let url = "/NotoSerifCJK-VF.otf.ttc";
+
+        let ctx = cc.egui_ctx.clone();
+
+        ehttp::fetch(ehttp::Request::get(url), move |result| {
+            if let Ok(response) = result {
+                let font_bytes = response.bytes;
+                let mut fonts = egui::FontDefinitions::default();
+
+                // Insert the CJK font data
+                fonts.font_data.insert(
+                    "NotoSansCJKjp".to_owned(),
+                    Arc::from(egui::FontData::from_owned(font_bytes)),
+                );
+
+                // Add it as the primary font for Proportional text
+                fonts.families
+                    .get_mut(&egui::FontFamily::Proportional)
+                    .unwrap()
+                    .push("NotoSansCJKjp".to_owned());
+
+                ctx.set_fonts(fonts);
+                ctx.request_repaint();
+            }
+        });
         result
     }
 }
@@ -92,22 +123,47 @@ impl eframe::App for App {
                 }
             }
         }
+        if self.internal.initial {
+            self.internal.initial = false;
+            ctx.request_repaint();
+            ctx.request_repaint_after(Duration::new(0, 200_000_000));
+        }
         while let Ok(v) = self.internal.receiver.lock().unwrap().try_recv() {
             update.push(v);
         }
         let has_update = update.len() > 0;
         self.history.append(&mut update);
 
-        egui::Window::new("News Panel").show(ctx, |ui| {
+        egui::Window::new("News Panel")
+            .scroll([false, true])
+            .scroll_bar_visibility(ScrollBarVisibility::VisibleWhenNeeded)
+            .show(ctx, |ui| {
             ui.vertical(|ui| {
                 for item in self.history.iter().clone() {
                     egui::containers::Frame::new()
                         .corner_radius(CornerRadius::same(6))
                         .show(ui, |ui| {
                             ui.vertical(|ui| {
-                                ui.hyperlink_to(item.title.clone(), item.link.clone());
+                                //ui.hyperlink_to(item.title.clone(), item.link.clone());
+                                let mut layout = LayoutJob::default();
+                                layout.wrap = TextWrapping::wrap_at_width(ui.available_width());
+                                layout.round_output_to_gui = true;
+                                layout.break_on_newline = true;
+                                layout.halign = Align::LEFT;
+                                layout.append(&item.title, 0.0, TextFormat {
+                                    font_id: FontId::new(14.0, FontFamily::Proportional),
+                                    color: ui.visuals().hyperlink_color,
+                                    ..Default::default()
+                                },);
+
+                                ui.add(
+                                    egui::Hyperlink::from_label_and_url(
+                                        layout,
+                                        item.link.clone()
+                                    ).open_in_new_tab(true)
+                                );
                                 if item.description.len() > 0 {
-                                    ui.label(&item.description);
+                                    ui.label(egui::RichText::new(item.description.clone()).size(11.0f32));
                                 };
                                 let mut tiny_text = String::new();
                                 tiny_text.push_str(&item.organisation);

@@ -1,7 +1,8 @@
 var cacheName = 'egui-news-agg';
 var filesToCache = [
     './',
-    './index.html'
+    './index.html',
+    "./assets/NotoSerifCJK-VF.otf.ttc"
 ];
 
 self.addEventListener('install', (event) => {
