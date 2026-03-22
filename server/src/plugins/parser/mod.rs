@@ -6,3 +6,5 @@ pub(crate) mod youtube;
 
 #[cfg(feature = "reddit")]
 pub mod reddit;
+
+pub mod rss2;

@@ -67,3 +67,13 @@ update_interval = 1200
 type = "Reddit"
 query = "ProgrammerHumor"
 update_interval = 450
+
+[[config]]
+type = "Rss2Generic"
+query = "https://feeds.bbci.co.uk/news/rss.xml"
+update_interval = 900
+
+[[config]]
+type = "Rss2Generic"
+query = "https://feeds.bbci.co.uk/news/world/rss.xml"
+update_interval = 900

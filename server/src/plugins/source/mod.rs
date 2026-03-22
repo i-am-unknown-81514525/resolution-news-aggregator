@@ -4,6 +4,7 @@ mod youtube;
 
 #[cfg(feature = "reddit")]
 pub mod reddit;
+mod rss2;
 
 pub(crate) use crate::plugins::net::rss_fetch::RssFetchError;
 use crate::plugins::source::google_rss_search::GoogleRssSearch;
@@ -15,9 +16,9 @@ use crate::plugins::source::hacker_news::HackerNews;
 use crate::plugins::source::youtube::Youtube;
 #[cfg(feature = "reddit")]
 use crate::plugins::source::reddit::Reddit;
+use crate::plugins::source::rss2::Rss2Generic;
 
-
-value_enum!(RSSSourceType, GoogleRssSearch, HackerNews, Youtube, #[cfg(feature = "reddit")] Reddit);
+value_enum!(RSSSourceType, GoogleRssSearch, HackerNews, Youtube, #[cfg(feature = "reddit")] Reddit, Rss2Generic);
 
 #[async_trait::async_trait]
 pub(crate) trait RSSSource: Send + Sync {
@@ -41,6 +42,7 @@ pub(crate) enum BoxedRSSSource {
     Youtube(Youtube),
     #[cfg(feature = "reddit")]
     Reddit(Reddit),
+    Rss2Generic(Rss2Generic)
 }
 
 // Implement the trait for the enum by forwarding calls to the variants
@@ -53,6 +55,7 @@ impl BoxedRSSSource {
             BoxedRSSSource::Youtube(search) => search.get_url(value),
             #[cfg(feature = "reddit")]
             BoxedRSSSource::Reddit(search) => search.get_url(value),
+            BoxedRSSSource::Rss2Generic(search) => search.get_url(value),
         }
     }
 
@@ -63,6 +66,7 @@ impl BoxedRSSSource {
             BoxedRSSSource::Youtube(search) => search.deserialize(content)?.to_vec_unify(),
             #[cfg(feature = "reddit")]
             BoxedRSSSource::Reddit(search) => search.deserialize(content)?.to_vec_unify(),
+            BoxedRSSSource::Rss2Generic(search) => search.deserialize(content)?.to_vec_unify(),
         })
     }
 
@@ -73,6 +77,7 @@ impl BoxedRSSSource {
             BoxedRSSSource::Youtube(search) => search.post_process(content).await,
             #[cfg(feature = "reddit")]
             BoxedRSSSource::Reddit(search) => search.post_process(content).await,
+            BoxedRSSSource::Rss2Generic(search) => search.post_process(content).await,
         }
     }
 }
@@ -84,5 +89,6 @@ pub(crate) fn remap<'a>(t: RSSSourceType) -> BoxedRSSSource {
         RSSSourceType::Youtube => BoxedRSSSource::Youtube(Youtube {}),
         #[cfg(feature = "reddit")]
         RSSSourceType::Reddit => BoxedRSSSource::Reddit(Reddit {}),
+        RSSSourceType::Rss2Generic => BoxedRSSSource::Rss2Generic(Rss2Generic {}),
     }
 }
