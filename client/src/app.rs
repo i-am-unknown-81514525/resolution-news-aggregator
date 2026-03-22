@@ -22,7 +22,7 @@ use crate::dt::format_fuzzy_dist;
 
 struct Count(Option<u32>);
 
-struct Internal {
+pub struct Internal {
     #[cfg(target_arch = "wasm32")]
     pub ws: Option<WasmWebsocket>,
     pub sender: Sender<UnifyOutput>,
@@ -56,7 +56,7 @@ pub struct App {
     pub history: Arc<RwLock<IndexMap<String, UnifyOutput>>>,
 
     #[serde(skip)] 
-    pub internal: Internal
+    pub internal: Arc<RwLock<Internal>>
 }
 
 impl Default for App {
@@ -64,7 +64,7 @@ impl Default for App {
         Self {
             src: "".to_string(),
             history: Arc::new(RwLock::new(IndexMap::new())),
-            internal: Internal::new(),
+            internal: Arc::new(RwLock::new(Internal::new())),
         }
     }
 }
@@ -121,7 +121,7 @@ impl App {
         //         }
         //     }
         // });
-        update_feed(cc.egui_ctx.clone(), result.history.clone(), result.internal.page.clone(), &result.src);
+        update_feed(cc.egui_ctx.clone(), result.history.clone(), result.internal.read().unwrap().page.clone(), &result.src);
         result
     }
 }
@@ -172,21 +172,21 @@ impl eframe::App for App {
         let mut update: Vec<UnifyOutput> = Vec::new();
         cfg_if! {
             if #[cfg(target_arch = "wasm32")] {
-                if self.internal.ws.is_none() {
+                if self.internal.read().unwrap().ws.is_none() {
                     let mut path = String::from(&self.src);
                     path.push_str("/ws");
-                    let ws = WasmWebsocket::new(&path, self.internal.sender.clone());
-                    self.internal.ws = Some(ws);
+                    let ws = WasmWebsocket::new(&path, self.internal.read().unwrap().sender.clone(), self.internal.clone());
+                    self.internal.write().unwrap().ws = Some(ws);
                 }
             }
         }
-        update_feed(ctx.clone(), self.history.clone(), self.internal.page.clone(), &self.src);
-        if self.internal.initial {
-            self.internal.initial = false;
+        update_feed(ctx.clone(), self.history.clone(), self.internal.read().unwrap().page.clone(), &self.src);
+        if self.internal.read().unwrap().initial {
+            self.internal.write().unwrap().initial = false;
             ctx.request_repaint();
             ctx.request_repaint_after(Duration::new(0, 200_000_000));
         }
-        while let Ok(v) = self.internal.receiver.lock().unwrap().try_recv() {
+        while let Ok(v) = self.internal.read().unwrap().receiver.lock().unwrap().try_recv() {
             update.push(v);
         }
         let has_update = update.len() > 0;
@@ -194,13 +194,14 @@ impl eframe::App for App {
             self.history.write().unwrap().entry(item.id.clone()).or_insert(item);
         }
         if has_update {
-            self.internal.last_update = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
+            self.internal.write().unwrap().last_update = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
         } else {
             let curr = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
-            if (curr - self.internal.last_update).as_seconds_f32() > 600f32 {
-                self.internal.ws = None; // Reconnect
-                self.internal.page.write().unwrap().0 = Some(0);
-                self.internal.last_update = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
+            if (curr - self.internal.read().unwrap().last_update).as_seconds_f32() > 600f32 {
+                let l = self.internal.write().unwrap();
+                l.ws = None; // Reconnect
+                l.page.write().unwrap().0 = Some(0);
+                l.last_update = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
             }
         }
 

@@ -47,7 +47,8 @@ web-sys = { version = "0.3.70", features = ["WebSocket", "BinaryType",
     "ErrorEvent",
     "FileReader",
     "MessageEvent",
-    "ProgressEvent",] }
+    "ProgressEvent",
+    "CloseEvent"] }
 wasm-bindgen = "0.2.114"
 js-sys = "0.3.91"
 # to access the DOM (to hide the loading text)
