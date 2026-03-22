@@ -1,4 +1,4 @@
-use egui::{Align, Color32, RichText};
+use egui::{Align, Color32, PointerButton, RichText};
 use epaint::{CornerRadius, FontFamily, FontId};
 use std::sync::mpsc::{Sender, Receiver, channel};
 use std::sync::{Arc, Mutex, RwLock};
@@ -206,7 +206,7 @@ impl eframe::App for App {
 
         self.history.write().unwrap().sort_by(|_k1, v1, _k2, v2| v1.time.timestamp_micros().cmp(&v2.time.timestamp_micros()));
 
-
+        let now = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
         egui::Window::new("News Panel")
             .scroll([false, true])
             .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
@@ -214,6 +214,9 @@ impl eframe::App for App {
             ui.vertical(|ui| {
                 for item in self.history.read().unwrap().iter().map(|x| x.1).rev().collect::<Vec<&UnifyOutput>>()
                 {
+                    if item.time > now {
+                        continue;
+                    }
                     egui::containers::Frame::new()
                         .corner_radius(CornerRadius::same(6))
                         .outer_margin(5.0)
@@ -231,12 +234,15 @@ impl eframe::App for App {
                                     ..Default::default()
                                 },);
 
-                                ui.add(
+                                let link = ui.add(
                                     egui::Hyperlink::from_label_and_url(
                                         layout,
                                         item.link.clone()
                                     ).open_in_new_tab(true)
                                 );
+                                if link.secondary_clicked() {
+                                    ctx.copy_text(item.link.clone());
+                                }
                                 if !item.description.is_empty() {
                                     ui.label(egui::RichText::new(truncate_text(&item.description, 600)).size(11.0f32));
                                 };
@@ -251,14 +257,17 @@ impl eframe::App for App {
                                 }
                                 ui.horizontal(|ui| {
                                     if let SourceKind::LinkedSource(_, l) = item.source.clone() {
-                                        ui.add(
+                                        let link = ui.add(
                                             egui::Hyperlink::from_label_and_url(
                                                 RichText::new(tiny_text)
                                                     .color(Color32::from_rgb(128, 128, 128))
                                                     .size(9.0f32),
-                                                l
+                                                l.clone()
                                             ).open_in_new_tab(true)
                                         );
+                                        if link.secondary_clicked() {
+                                            ctx.copy_text(l);
+                                        }
                                     } else {
                                         ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(9.0f32));
                                     }
