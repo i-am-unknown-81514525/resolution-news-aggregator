@@ -1,7 +1,12 @@
 [[config]]
 type = "GoogleRssSearch"
-query = "(war OR disruption OR breaking OR earthquake OR WTI) when:1d"
+query = "(war OR disruption OR earthquake OR breaking) when:1d"
 update_interval = 300
+
+[[config]]
+type = "GoogleRssSearch"
+query = "(apple OR android) when:7d"
+update_interval = 600
 
 [[config]]
 type = "HackerNews"
@@ -11,9 +16,49 @@ update_interval = 300
 [[config]]
 type = "Youtube"
 query = "UCHnyfMqiRRG1u-2MsSQLbXA" # https://www.youtube.com/veritasium
-update_interval = 300
+update_interval = 1200
 
 [[config]]
 type = "Youtube"
 query = "UC-eegKVWEgBCa4OzjnK_PtA" # http://youtube.com/@TLDRnewsEU
-update_interval = 300
+update_interval = 1200
+
+[[config]]
+type = "Youtube"
+query = "UC-ufRLYrXxrIEApGn9VG5pQ" # https://www.youtube.com/@rejectconvenience
+update_interval = 1200
+
+[[config]]
+type = "Youtube"
+query = "UCuQT7Vc3OjjZuGkqehNxb6w" # https://www.youtube.com/@enricotartarotti
+update_interval = 1200
+
+[[config]]
+type = "Youtube"
+query = "UCqykZoZjaOPb6i_Y5gk0kLQ" # https://www.youtube.com/@christophe
+update_interval = 1200
+
+[[config]]
+type = "Youtube"
+query = "UCxkM67T_Iele-mRVUiBkRqg" # https://www.youtube.com/@jetlagthegame
+update_interval = 1200
+
+[[config]]
+type = "Youtube"
+query = "UC-uhvujip5deVcEtLxnW8qg" #  https://www.youtube.com/@TLDRnewsGLOBAL
+update_interval = 1200
+
+[[config]]
+type = "Youtube"
+query = "UCGudGqToOw9hWGR88W9Jutg" #  https://www.youtube.com/@Howtown
+update_interval = 1200
+
+[[config]]
+type = "Youtube"
+query = "UCii9ezsUa_mBiSdw0PtSOaw" # https://www.youtube.com/@hoog-youtube
+update_interval = 1200
+
+[[config]]
+type = "Youtube"
+query = "UCODHrzPMGbNv67e84WDZhQQ" # https://www.youtube.com/@fern-tv
+update_interval = 1200
