@@ -7,3 +7,13 @@ update_interval = 300
 type = "HackerNews"
 query = ""
 update_interval = 300
+
+[[config]]
+type = "Youtube"
+query = "UCHnyfMqiRRG1u-2MsSQLbXA" # https://www.youtube.com/veritasium
+update_interval = 300
+
+[[config]]
+type = "Youtube"
+query = "UC-eegKVWEgBCa4OzjnK_PtA" # http://youtube.com/@TLDRnewsEU
+update_interval = 300

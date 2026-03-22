@@ -1,5 +1,6 @@
 mod google_rss_search;
 mod hacker_news;
+mod youtube;
 
 pub(crate) use crate::plugins::net::rss_fetch::RssFetchError;
 use crate::plugins::source::google_rss_search::GoogleRssSearch;
@@ -8,8 +9,9 @@ use common::unify::{ToVecUnify, UnifyOutput};
 use serde::Deserialize;
 use serde_xml_rs::from_str;
 use crate::plugins::source::hacker_news::HackerNews;
+use crate::plugins::source::youtube::Youtube;
 
-value_enum!(RSSSourceType, GoogleRssSearch, HackerNews);
+value_enum!(RSSSourceType, GoogleRssSearch, HackerNews, Youtube);
 
 #[async_trait::async_trait]
 pub(crate) trait RSSSource: Send + Sync {
@@ -30,6 +32,7 @@ pub(crate) trait RSSSource: Send + Sync {
 pub(crate) enum BoxedRSSSource {
     GoogleRssSearch(GoogleRssSearch),
     HackerNews(HackerNews),
+    Youtube(Youtube)
 }
 
 // Implement the trait for the enum by forwarding calls to the variants
@@ -39,6 +42,7 @@ impl BoxedRSSSource {
         match self {
             BoxedRSSSource::GoogleRssSearch(search) => search.get_url(value),
             BoxedRSSSource::HackerNews(search) => search.get_url(value),
+            BoxedRSSSource::Youtube(search) => search.get_url(value),
         }
     }
 
@@ -46,6 +50,7 @@ impl BoxedRSSSource {
         Ok(match self {
             BoxedRSSSource::GoogleRssSearch(search) => search.deserialize(content)?.to_vec_unify(),
             BoxedRSSSource::HackerNews(search) => search.deserialize(content)?.to_vec_unify(),
+            BoxedRSSSource::Youtube(search) => search.deserialize(content)?.to_vec_unify(),
         })
     }
 
@@ -53,6 +58,7 @@ impl BoxedRSSSource {
         match self {
             BoxedRSSSource::GoogleRssSearch(search) => search.post_process(content).await,
             BoxedRSSSource::HackerNews(search) => search.post_process(content).await,
+            BoxedRSSSource::Youtube(search) => search.post_process(content).await,
         }
     }
 }
@@ -60,6 +66,7 @@ impl BoxedRSSSource {
 pub(crate) fn remap<'a>(t: RSSSourceType) -> BoxedRSSSource {
     match t {
         RSSSourceType::GoogleRssSearch => BoxedRSSSource::GoogleRssSearch(GoogleRssSearch {}),
-        RSSSourceType::HackerNews => BoxedRSSSource::HackerNews(HackerNews {})
+        RSSSourceType::HackerNews => BoxedRSSSource::HackerNews(HackerNews {}),
+        RSSSourceType::Youtube => BoxedRSSSource::Youtube(Youtube {})
     }
 }
