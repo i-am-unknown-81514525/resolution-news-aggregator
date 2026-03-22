@@ -29,7 +29,7 @@ pub struct Internal {
     pub receiver: Arc<Mutex<Receiver<UnifyOutput>>>,
     pub initial: bool,
     pub page: Arc<RwLock<Count>>,
-    pub last_update: chrono::DateTime<chrono::FixedOffset>
+    // pub last_update: chrono::DateTime<chrono::FixedOffset>
 }
 
 impl Internal {
@@ -42,7 +42,7 @@ impl Internal {
             receiver: Arc::new(Mutex::new(receiver)),
             initial: true,
             page: Arc::new(RwLock::new(Count(Some(0)))),
-            last_update: chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap())
+            // last_update: chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap())
         }
     }
 }
@@ -177,6 +177,7 @@ impl eframe::App for App {
                     path.push_str("/ws");
                     let ws = WasmWebsocket::new(&path, self.internal.read().unwrap().sender.clone(), self.internal.clone());
                     self.internal.write().unwrap().ws = Some(ws);
+                    self.internal.write().unwrap().page.clone().write().unwrap().0 = Some(0);
                 }
             }
         }
@@ -193,17 +194,17 @@ impl eframe::App for App {
         for item in update {
             self.history.write().unwrap().entry(item.id.clone()).or_insert(item);
         }
-        if has_update {
-            self.internal.write().unwrap().last_update = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
-        } else {
-            let curr = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
-            if (curr - self.internal.read().unwrap().last_update).as_seconds_f32() > 600f32 {
-                let l = self.internal.write().unwrap();
-                l.ws = None; // Reconnect
-                l.page.write().unwrap().0 = Some(0);
-                l.last_update = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
-            }
-        }
+        // if has_update {
+        //     self.internal.write().unwrap().last_update = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
+        // } else {
+        //     let curr = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
+        //     if (curr - self.internal.read().unwrap().last_update).as_seconds_f32() > 600f32 {
+        //         let mut l = self.internal.write().unwrap();
+        //         l.ws = None; // Reconnect
+        //         l.page.write().unwrap().0 = Some(0);
+        //         l.last_update = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
+        //     }
+        // }
 
         self.history.write().unwrap().sort_by(|k1, v1, k2, v2| v1.time.timestamp_micros().cmp(&v2.time.timestamp_micros()));
 
@@ -252,7 +253,14 @@ impl eframe::App for App {
                                 }
                                 ui.horizontal(|ui| {
                                     if let SourceKind::LinkedSource(_, l) = item.source.clone() {
-                                        ui.hyperlink_to(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(9.0f32), l);
+                                        ui.add(
+                                            egui::Hyperlink::from_label_and_url(
+                                                RichText::new(tiny_text)
+                                                    .color(Color32::from_rgb(128, 128, 128))
+                                                    .size(9.0f32),
+                                                l
+                                            ).open_in_new_tab(true)
+                                        );
                                     } else {
                                         ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(9.0f32));
                                     }
