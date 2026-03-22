@@ -64,9 +64,7 @@ pub(crate) enum ApplicationError {
     RssFetchError(#[from] plugins::source::RssFetchError),
 }
 
-pub async fn fetch_with_config(config: &Config, span: Option<tracing::Span>) -> Result<Vec<UnifyOutput>, ApplicationError> {
-    let span = span.unwrap_or(tracing::info_span!("fetch"));
-    let _guard = span.enter();
+pub async fn fetch_with_config(config: &Config) -> Result<Vec<UnifyOutput>, ApplicationError> {
     let kind = RSSSourceType::enum_str(&config.rss_type).map_err(
         |e| {
             tracing::warn!("Missing RSS type: {}", e);
@@ -101,42 +99,44 @@ pub async fn background_fetching(
     loop {
         let span = tracing::info_span!("background_fetching");
 
-        let outputs = fetch_with_config(config, Some(span)).await;
-        if let Ok(outputs) = outputs {
-            info!("Pushing {} outputs", outputs.len());
-            for output in outputs {
-                let raw = output.to_raw();
-                if !state
-                    .lock()
-                    .await
-                    .hash_data
-                    .clone()
-                    .read()
-                    .await
-                    .contains_key(&output.id)
-                {
-                    let ptr_hash = state.lock().await.hash_data.clone();
-                    let ptr_history = state.lock().await.history.clone();
-                    let mut hash_lock = ptr_hash.write().await;
-                    let mut history_lock = ptr_history.write().await;
-                    let allowed = output.hash_key.iter().all(|k| !hash_lock.contains_key(k));
-                    if !allowed {continue;}
-                    let mut rng = rand::rng();
-                    let his_key = loop {
-                        let k = rng.next_u64();
-                        if !history_lock.contains_key(&k) { break k; }
-                    };
+        span.in_scope(async || {
+            let outputs = fetch_with_config(config).await;
+            if let Ok(outputs) = outputs {
+                info!("Pushing {} outputs", outputs.len());
+                for output in outputs {
+                    let raw = output.to_raw();
+                    if !state
+                        .lock()
+                        .await
+                        .hash_data
+                        .clone()
+                        .read()
+                        .await
+                        .contains_key(&output.id)
+                    {
+                        let ptr_hash = state.lock().await.hash_data.clone();
+                        let ptr_history = state.lock().await.history.clone();
+                        let mut hash_lock = ptr_hash.write().await;
+                        let mut history_lock = ptr_history.write().await;
+                        let allowed = output.hash_key.iter().all(|k| !hash_lock.contains_key(k));
+                        if !allowed {continue;}
+                        let mut rng = rand::rng();
+                        let his_key = loop {
+                            let k = rng.next_u64();
+                            if !history_lock.contains_key(&k) { break k; }
+                        };
 
-                    history_lock.insert(his_key, Arc::new(output.to_raw()));
-                    drop(history_lock);
-                    for key in output.hash_key {
-                        hash_lock.insert(key, his_key);
+                        history_lock.insert(his_key, Arc::new(output.to_raw()));
+                        drop(history_lock);
+                        for key in output.hash_key {
+                            hash_lock.insert(key, his_key);
+                        }
+                        let recv_count = sender.send(raw).unwrap_or(0);
+                        info!("Pushed document {} to {} receivers", output.id, recv_count);
                     }
-                    let recv_count = sender.send(raw).unwrap_or(0);
-                    info!("Pushed document {} to {} receivers", output.id, recv_count);
                 }
             }
-        }
+        });
         tokio::time::sleep(Duration::from_secs(config.update_interval as u64)).await;
     }
 }
