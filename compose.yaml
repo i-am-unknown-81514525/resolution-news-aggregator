@@ -14,7 +14,7 @@ services:
       context: .
       dockerfile: Dockerfile.server
     environment:
-      - RUST_LOG=debug
+      - RUST_LOG=info
     restart: unless-stopped
     volumes:
       - ./config.toml:/app/config.toml:ro
