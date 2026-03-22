@@ -15,8 +15,6 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 FROM rust:1.93-slim as builder
 WORKDIR /app
 COPY . .
-COPY --from=cacher /app/target target
-COPY --from=cacher /usr/local/cargo /usr/local/cargo
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/app/target,sharing=locked \
     cargo build --release --bin news-aggregator-server \
