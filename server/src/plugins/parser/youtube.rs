@@ -48,15 +48,17 @@ pub struct YoutubeFeedEntry {
 
 impl YoutubeFeedEntry {
     pub fn get_unify(&self) -> UnifyOutput {
+        let id = format!("youtube:{}", self.video_id);
         UnifyOutput {
-            id: format!("youtube:{}", self.video_id),
+            id: id.clone(),
             organisation: self.author.name.clone(),
             title: self.title.clone(),
             description: self.media_group.description.clone(),
             time: self.published,
             score: None,
             source: SourceKind::LinkedSource("YouTube".to_string(), self.author.uri.clone()),
-            link: self.link.href.clone()
+            link: self.link.href.clone(),
+            hash_key: vec![id]
         }
     }
 }

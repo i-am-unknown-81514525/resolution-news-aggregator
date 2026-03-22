@@ -2,6 +2,7 @@ use crate::plugins::parser::common::DocumentID;
 use crate::plugins::parser::utils::string_as_rfc2822;
 use common::unify::{SourceKind, ToVecUnify, UnifyOutput};
 use serde::{Deserialize, Serialize};
+use tower_http::CompressionLevel::Default;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Origin {
@@ -32,7 +33,8 @@ impl GoogleMrssItem {
             time: self.publish_date,
             score: None,
             source: SourceKind::Source("Google News".to_string()),
-            link: self.link.clone()
+            link: self.link.clone(),
+            hash_key: vec![self.guid.id.clone()]
         }
     }
 }

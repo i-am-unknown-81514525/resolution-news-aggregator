@@ -2,6 +2,7 @@ mod plugins;
 mod value_enum;
 mod config;
 
+use std::collections::{HashMap, HashSet};
 use axum::{
     Router,
     body::Bytes,
@@ -30,11 +31,14 @@ use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::config::{Config};
+use ahash::{RandomState, AHasher};
+use rand::Rng;
 
 struct ServerState {
     // conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
     receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>,
-    history: Arc<RwLock<IndexMap<String, Arc<UnifyOutputRaw>>>>,
+    history: Arc<RwLock<IndexMap<u64, Arc<UnifyOutputRaw>>>>,
+    hash_data: Arc<RwLock<HashMap<String, u64, RandomState>>>
 }
 
 impl ServerState {
@@ -42,6 +46,7 @@ impl ServerState {
         Self {
             receiver,
             history: Arc::new(RwLock::new(IndexMap::with_capacity(1000))),
+            hash_data: Arc::new(RwLock::new(HashMap::default()))
         }
     }
 }
@@ -104,19 +109,32 @@ pub async fn background_fetching(
                 if !state
                     .lock()
                     .await
-                    .history
+                    .hash_data
                     .clone()
                     .read()
                     .await
                     .contains_key(&output.id)
                 {
-                    let ptr = state.lock().await.history.clone();
-                    let mut lock = ptr.write().await;
-                    lock.entry(output.id.clone())
-                        .or_insert(Arc::new(raw.clone()));
+                    let ptr_hash = state.lock().await.hash_data.clone();
+                    let ptr_history = state.lock().await.history.clone();
+                    let mut hash_lock = ptr_hash.write().await;
+                    let mut history_lock = ptr_history.write().await;
+                    let allowed = output.hash_key.iter().all(|k| !hash_lock.contains_key(k));
+                    if !allowed {continue;}
+                    let mut rng = rand::rng();
+                    let his_key = loop {
+                        let k = rng.next_u64();
+                        if !history_lock.contains_key(&k) { break k; }
+                    };
+
+                    history_lock.insert(his_key, Arc::new(output.to_raw()));
+                    drop(history_lock);
+                    for key in output.hash_key {
+                        hash_lock.insert(key, his_key);
+                    }
+                    let recv_count = sender.send(raw).unwrap_or(0);
+                    info!("Pushed document {} to {} receivers", output.id, recv_count);
                 }
-                let recv_count = sender.send(raw).unwrap_or(0);
-                info!("Pushed document {} to {} receivers", output.id, recv_count);
             }
         }
         tokio::time::sleep(Duration::from_secs(config.update_interval as u64)).await;
