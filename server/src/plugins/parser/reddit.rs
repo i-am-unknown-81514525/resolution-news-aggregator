@@ -49,7 +49,7 @@ impl RedditFeedEntry {
             id: id.clone(),
             organisation: format!("{} in {}", self.author.name.clone(), self.category.label),
             title: self.title.clone(),
-            description: self.content.unwrap_or(String::from("")),
+            description: self.content.clone().unwrap_or(String::from("")),
             time: self.published,
             score: None,
             source: SourceKind::LinkedSource("Reddit".to_string(), self.author.uri.clone()),
