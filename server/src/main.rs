@@ -2,7 +2,7 @@ mod plugins;
 mod value_enum;
 mod config;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use axum::{
     Router,
     body::Bytes,
@@ -12,7 +12,6 @@ use axum::{
 };
 use axum_extra::TypedHeader;
 use indexmap::IndexMap;
-use tokio;
 
 use crate::plugins::source::{RSSSource, RSSSourceType, remap};
 use crate::value_enum::EnumFromStr;
@@ -31,7 +30,7 @@ use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::config::{Config};
-use ahash::{RandomState, AHasher};
+use ahash::RandomState;
 use rand::Rng;
 
 struct ServerState {
@@ -74,7 +73,7 @@ pub async fn fetch_with_config(config: &Config) -> Result<Vec<UnifyOutput>, Appl
     let source = remap(kind);
     let url = source.get_url(&config.query).ok_or_else(|| {
         tracing::warn!("Failed to obtain RSS URL (rss_type: {}, query: {})", config.rss_type, config.query);
-        return ApplicationError::FailedToObtainRssUrl(config.rss_type.clone(), config.query.clone());
+        ApplicationError::FailedToObtainRssUrl(config.rss_type.clone(), config.query.clone())
     })?;
     let content = get_raw(url.parse().map_err(|e| {
         tracing::warn!("Failed to parse url: {}", e);
@@ -311,6 +310,6 @@ async fn news_ws_handler(
             }
             let _ = socket.send(Message::Close(None)).await; // Attempt graceful close and expect failed
         }).await;
-        ()
+        
     })
 }

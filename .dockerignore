@@ -41,3 +41,4 @@ devenv.local.yaml
 client/dist/*
 
 config.toml
+*/.cargo

@@ -1,5 +1,5 @@
 use std::fmt;
-use chrono::{DateTime, FixedOffset, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, TimeZone as _, Utc};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 fn serialize_dt<S>(x: &DateTime<FixedOffset>, s: S) -> Result<S::Ok, S::Error>
@@ -41,10 +41,10 @@ impl Serialize for SourceKind {
         S: Serializer,
     {
         match self {
-            SourceKind::LinkedSource(s, l) => serializer.serialize_str(&format!("__linked__::::new_agg::::{}::::new_agg::::{}", s, l)),
-            SourceKind::Source(s) => serializer.serialize_str(s),
-            SourceKind::Origin => serializer.serialize_str("__special_origin__"),
-            SourceKind::Unknown => serializer.serialize_unit(),
+            Self::LinkedSource(s, l) => serializer.serialize_str(&format!("__linked__::::new_agg::::{s}::::new_agg::::{l}")),
+            Self::Source(s) => serializer.serialize_str(s),
+            Self::Origin => serializer.serialize_str("__special_origin__"),
+            Self::Unknown => serializer.serialize_unit(),
         }
     }
 }
@@ -56,7 +56,7 @@ impl<'de> Deserialize<'de> for SourceKind {
     {
         struct SourceKindVisitor;
 
-        impl<'de> de::Visitor<'de> for SourceKindVisitor {
+        impl de::Visitor<'_> for SourceKindVisitor {
             type Value = SourceKind;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -120,7 +120,7 @@ pub struct UnifyOutput {
 impl UnifyOutput {
     pub fn to_raw(&self) -> UnifyOutputRaw {
         UnifyOutputRaw {
-            data: String::from(serde_json::to_string(self).unwrap()),
+            data: serde_json::to_string(self).unwrap(),
         }
     }
 }

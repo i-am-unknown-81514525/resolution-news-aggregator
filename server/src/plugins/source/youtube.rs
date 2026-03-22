@@ -7,9 +7,9 @@ impl RSSSource for Youtube {
 
     fn get_url(&self, value: &str) -> Option<String> {
         let query = value.to_string();
-        return Some(format!(
+        Some(format!(
             "https://www.youtube.com/feeds/videos.xml?channel_id={}",
             query
-        ));
+        ))
     }
 }

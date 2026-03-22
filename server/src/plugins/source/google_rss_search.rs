@@ -9,9 +9,9 @@ impl RSSSource for GoogleRssSearch {
 
     fn get_url(&self, value: &str) -> Option<String> {
         let query = value.to_string();
-        return Some(format!(
+        Some(format!(
             "https://news.google.com/rss/search?q={}&hl=en-US&gl=US&ceid=US:en",
             query
-        ));
+        ))
     }
 }

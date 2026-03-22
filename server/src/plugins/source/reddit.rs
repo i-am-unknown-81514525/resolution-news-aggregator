@@ -7,9 +7,9 @@ impl RSSSource for Reddit {
 
     fn get_url(&self, value: &str) -> Option<String> {
         let query = value.to_string();
-        return Some(format!(
+        Some(format!(
             "https://www.reddit.com/r/{}/.rss",
             query
-        ));
+        ))
     }
 }

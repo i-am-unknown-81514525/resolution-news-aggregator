@@ -26,7 +26,7 @@ pub(crate) trait RSSSource: Send + Sync {
         Self: 'a;
     fn get_url(&self, value: &str) -> Option<String>;
     fn deserialize(&self, content: &str) -> Result<Self::Deserialize<'_>, RssFetchError> {
-        let parsed: Self::Deserialize<'_> = from_str(content).map_err(|e| RssFetchError::SerdeXmlParseError(e))?;
+        let parsed: Self::Deserialize<'_> = from_str(content).map_err(RssFetchError::SerdeXmlParseError)?;
         Ok(parsed)
     }
 

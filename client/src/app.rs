@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use egui::{Align, Color32, RichText};
 use epaint::{CornerRadius, FontFamily, FontId};
 use std::sync::mpsc::{Sender, Receiver, channel};
@@ -130,21 +129,21 @@ fn update_feed(ctx: egui::Context, rw: Arc<RwLock<IndexMap<String, UnifyOutput>>
     let page_num: u32 = {
         let mut lock = counter.write().unwrap();
         let v = match lock.0 {
-            None => return (),
+            None => return ,
             Some(v) => v,
         };
         lock.0 = None;
         v
     };
     let mut history: String = path.to_string();
-    history.push_str(&"/api/history");
+    history.push_str("/api/history");
     history.push_str(&format!("?page={}", page_num));
     let counter_clone = counter.clone();
     ehttp::fetch(ehttp::Request::get(history), move |result| {
-        if let Ok(response) = result {
-            if let Some(data) = response.text() {
+        if let Ok(response) = result
+            && let Some(data) = response.text() {
                 let out: Vec<UnifyOutput> = serde_json::from_str(data).unwrap();
-                if out.len() > 0 {
+                if !out.is_empty() {
                     let mut lock = counter_clone.write().unwrap();
                     lock.0 = Some(page_num + 1);
                 } else {
@@ -156,7 +155,6 @@ fn update_feed(ctx: egui::Context, rw: Arc<RwLock<IndexMap<String, UnifyOutput>>
                 }
                 ctx.request_repaint();
             }
-        }
     });
 }
 
@@ -190,7 +188,7 @@ impl eframe::App for App {
         while let Ok(v) = self.internal.read().unwrap().receiver.lock().unwrap().try_recv() {
             update.push(v);
         }
-        let has_update = update.len() > 0;
+        let has_update = !update.is_empty();
         for item in update {
             self.history.write().unwrap().entry(item.id.clone()).or_insert(item);
         }
@@ -206,7 +204,7 @@ impl eframe::App for App {
         //     }
         // }
 
-        self.history.write().unwrap().sort_by(|k1, v1, k2, v2| v1.time.timestamp_micros().cmp(&v2.time.timestamp_micros()));
+        self.history.write().unwrap().sort_by(|_k1, v1, _k2, v2| v1.time.timestamp_micros().cmp(&v2.time.timestamp_micros()));
 
 
         egui::Window::new("News Panel")
@@ -239,16 +237,16 @@ impl eframe::App for App {
                                         item.link.clone()
                                     ).open_in_new_tab(true)
                                 );
-                                if item.description.len() > 0 {
+                                if !item.description.is_empty() {
                                     ui.label(egui::RichText::new(truncate_text(&item.description, 600)).size(11.0f32));
                                 };
                                 let mut tiny_text = String::new();
                                 tiny_text.push_str(&item.organisation);
                                 if let SourceKind::Source(x) = item.source.clone() {
-                                    tiny_text.push_str(&" via ");
+                                    tiny_text.push_str(" via ");
                                     tiny_text.push_str(&x);
                                 } else if let SourceKind::LinkedSource(x, _) = item.source.clone() {
-                                    tiny_text.push_str(&" via ");
+                                    tiny_text.push_str(" via ");
                                     tiny_text.push_str(&x);
                                 }
                                 ui.horizontal(|ui| {

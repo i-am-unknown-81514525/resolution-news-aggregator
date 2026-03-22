@@ -14,7 +14,6 @@ pub(crate) enum RssFetchError {
 }
 
 use std::sync::Arc;
-use headers::UserAgent;
 use reqwest::ClientBuilder;
 use reqwest_hickory_resolver::HickoryResolver;
 
@@ -40,8 +39,8 @@ pub(crate) async fn get_raw(url: reqwest::Url) -> Result<String, RssFetchError> 
         }
     );
     let req = CLIENT.get(url).send().await?;
-    let resp = req.text().await.map_err(|e| RssFetchError::RequestError(e));
-    resp
+    
+    req.text().await.map_err(RssFetchError::RequestError)
 }
 
 #[allow(dead_code)]
@@ -49,6 +48,6 @@ pub(crate) async fn fetch_rss<'a, T: Deserialize<'a>>(
     url: reqwest::Url,
 ) -> Result<T, RssFetchError> {
     let response = get_raw(url).await?;
-    let parsed: T = from_str(&response).map_err(|e| RssFetchError::SerdeXmlParseError(e))?;
+    let parsed: T = from_str(&response).map_err(RssFetchError::SerdeXmlParseError)?;
     Ok(parsed)
 }
