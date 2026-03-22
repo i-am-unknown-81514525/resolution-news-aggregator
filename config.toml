@@ -77,3 +77,8 @@ update_interval = 900
 type = "Rss2Generic"
 query = "https://feeds.bbci.co.uk/news/world/rss.xml"
 update_interval = 900
+
+[[config]]
+type = "Rss2Generic"
+query = "https://www.euronews.com/rss?format=mrss&level=theme&name=news"
+update_interval = 900
