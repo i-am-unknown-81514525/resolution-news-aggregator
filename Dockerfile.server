@@ -8,14 +8,21 @@ FROM rust:1.93-slim as cacher
 WORKDIR /app
 RUN cargo install cargo-chef
 COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cargo chef cook --release --recipe-path recipe.json
 
 FROM rust:1.93-slim as builder
 WORKDIR /app
 COPY . .
 COPY --from=cacher /app/target target
 COPY --from=cacher /usr/local/cargo /usr/local/cargo
-RUN cargo build --release --bin news-aggregator-server
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cargo build --release --bin news-aggregator-server \
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cp /app/target/release/news-aggregator-server /app/news-agg
 
 FROM debian:sid-slim
 WORKDIR /app
@@ -23,5 +30,5 @@ WORKDIR /app
 #RUN apt-get install -y libc6-amd64 libc6-dev libc6-dbg
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates
-COPY --from=builder /app/target/release/news-aggregator-server /app/news-agg
+COPY --from=builder /app/news-agg /app/news-agg
 CMD ["./news-agg"]

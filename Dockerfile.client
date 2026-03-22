@@ -9,17 +9,19 @@ WORKDIR /app
 RUN cargo install cargo-chef trunk && \
     rustup target add wasm32-unknown-unknown
 COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --target wasm32-unknown-unknown --recipe-path recipe.json
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cargo chef cook --release --target wasm32-unknown-unknown --recipe-path recipe.json
 
 FROM rust:1.93-slim as builder
 WORKDIR /app
 RUN cargo install trunk && rustup target add wasm32-unknown-unknown
 COPY . .
-COPY --from=cacher /app/target /app/target
-COPY --from=cacher /usr/local/cargo /usr/local/cargo
 
 WORKDIR /app/client
-RUN trunk build --release
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    trunk build --release
 
 FROM nginx:stable-alpine
 RUN rm -rf /usr/share/nginx/html/*
