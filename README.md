@@ -2,6 +2,11 @@
 
 A rust program to aggregate multiple RSS source to websocket to be broadcast to multiple client, and display it on a website!
 
+Example:
+
+<img width="1008" height="1970" alt="image" src="https://github.com/user-attachments/assets/48705f1e-4870-4c91-bdbd-14dd09433863" />
+
+
 TODO:
 - Server
   - [x] Read config
