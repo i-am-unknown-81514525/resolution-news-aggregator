@@ -30,4 +30,11 @@ indexmap = "2.13.0"
 url = "2.5.8"
 ahash = "0.8.12"
 rand = "0.10.0"
+html-escape = { version = "0.2.13", optional = true }
+html2text = { version = "0.16.7", optional = true }
 
+[features]
+html_handle = ["dep:html-escape", "dep:html2text"]
+reddit = ["html_handle"]
+
+default = ["reddit"]

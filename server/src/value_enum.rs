@@ -4,10 +4,11 @@ pub trait EnumFromStr: Sized {
 
 #[macro_export]
 macro_rules! value_enum {
-    ($name:ident, $( $value:ident ),*) => {
+    ($name:ident, $( $(#[$meta:meta])* $value:ident ),* $(,)?) => {
         #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
         pub enum $name {
             $(
+                $(#[$meta])*
                 $value,
             )*
         }
@@ -16,6 +17,7 @@ macro_rules! value_enum {
             fn enum_str(str: &str) -> Result<Self, String> {
                 match str {
                     $(
+                        $(#[$meta])*
                         stringify!($value) => Ok($name::$value),
                     )*
                     _ => Err(format!("Unknown value {}", str))
@@ -23,20 +25,11 @@ macro_rules! value_enum {
             }
         }
 
-        // impl ::std::fmt::Display for $name {
-        //     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        //         match self {
-        //             $(
-        //                 $name::$value => write!(f, "{}.{}", stringify!($name), self.to_string()),
-        //             )*
-        //         }
-        //     }
-        // }
-
         impl ToString for $name {
             fn to_string(&self) -> String {
                 match self {
                     $(
+                        $(#[$meta])*
                         $name::$value => stringify!($value).to_string(),
                     )*
                 }
