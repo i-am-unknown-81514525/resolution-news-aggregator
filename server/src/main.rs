@@ -136,7 +136,7 @@ pub async fn background_fetching(
                     }
                 }
             }
-        });
+        }).await;
         tokio::time::sleep(Duration::from_secs(config.update_interval as u64)).await;
     }
 }

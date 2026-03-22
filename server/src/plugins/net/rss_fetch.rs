@@ -14,13 +14,14 @@ pub(crate) enum RssFetchError {
 }
 
 use std::sync::Arc;
-
+use headers::UserAgent;
 use reqwest::ClientBuilder;
 use reqwest_hickory_resolver::HickoryResolver;
 
 fn init_with_hickory_resolver() -> reqwest::Result<reqwest::Client> {
     let mut builder = ClientBuilder::new();
     builder = builder.dns_resolver(Arc::new(HickoryResolver::default()));
+    builder = builder.user_agent("Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.2343.53 Safari/537.36");
     builder.build()
 }
 

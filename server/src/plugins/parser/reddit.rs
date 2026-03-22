@@ -29,10 +29,11 @@ pub struct Category {
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
 pub struct RedditFeedEntry {
-    pub title: String,
-    pub link: Link,
+    pub id: String, //
+    pub title: String, //
+    pub link: Link, //
     #[serde(default)]
-    pub author: Author,
+    pub author: Author, //
     #[serde(deserialize_with = "string_as_rfc3339")]
     pub published: chrono::DateTime<chrono::offset::FixedOffset>,
     #[serde(deserialize_with = "string_as_rfc3339")]
@@ -44,7 +45,7 @@ pub struct RedditFeedEntry {
 
 impl RedditFeedEntry {
     pub fn get_unify(&self) -> UnifyOutput {
-        let id = format!("reddit:{}", self.link.href.clone());
+        let id = format!("reddit:{}", self.id);
         UnifyOutput {
             id: id.clone(),
             organisation: format!("{} in {}", self.author.name.clone(), self.category.label),

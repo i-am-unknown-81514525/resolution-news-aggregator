@@ -62,3 +62,8 @@ update_interval = 1200
 type = "Youtube"
 query = "UCODHrzPMGbNv67e84WDZhQQ" # https://www.youtube.com/@fern-tv
 update_interval = 1200
+
+[[config]]
+type = "Reddit"
+query = "ProgrammerHumor"
+update_interval = 450
