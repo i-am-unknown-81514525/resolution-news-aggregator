@@ -34,7 +34,10 @@ impl GoogleMrssItem {
             score: None,
             source: SourceKind::Source("Google News".to_string()),
             link: self.link.clone(),
-            hash_key: vec![self.guid.id.clone()]
+            hash_key: vec![
+                self.guid.id.clone(),
+                format!("google:{}:{}:{}", self.title, self.source.publisher, self.publish_date.timestamp_micros())
+            ]
         }
     }
 }
