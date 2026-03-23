@@ -1,17 +1,27 @@
 [[config]]
 type = "GoogleRssSearch"
 query = "(war OR disruption OR earthquake OR breaking) when:1d"
-update_interval = 300
+update_interval = 1200
 
 [[config]]
 type = "GoogleRssSearch"
-query = "(apple OR android) when:7d"
-update_interval = 600
+query = "(apple OR android OR iOS OR macOS OR iPadOS OR Google) when:7d"
+update_interval = 2400
 
 [[config]]
 type = "HackerNews"
 query = ""
-update_interval = 300
+update_interval = 1200
+
+[[config]]
+type = "GoogleRssSearch"
+query = "(Gemini OR OpenAI OR GPT OR Claude OR Deepseek OR AI) when: 7d"
+update_interval = 2400
+
+[[config]]
+type = "GoogleRssSearch"
+query = "(CVE OR vulnerability) whe: 7d"
+update_interval = 2400
 
 [[config]]
 type = "Youtube"
