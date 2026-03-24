@@ -26,6 +26,6 @@ TODO:
   - [ ] Multi-window
   - [ ] Content filtering (Filter the entire window and stored)
   - [ ] Search feature
-  - [ ] PWA Push API
+  - [ ] PWA ~Push API~ Background sync on offline + periodic sync
   - [ ] WebSocket indication?
   - [ ] ehttp error handling 
