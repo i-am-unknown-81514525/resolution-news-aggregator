@@ -14,11 +14,18 @@ TODO:
   - [x] Config file
   - [ ] Google News URL resolve
   - [ ] SQL database
+  - [ ] Server side output filter
+  - [ ] PWA Push API handling
 - RSS Source
-  - [ ] Google News Domain based 
+  - [ ] Google News Domain based (i.e. lazy API)
   - [x] Hacker News
   - [x] Youtube
+  - [x] Reddit
+  - [x] Generic RSS
 - UI
   - [ ] Multi-window
   - [ ] Content filtering (Filter the entire window and stored)
   - [ ] Search feature
+  - [ ] PWA Push API
+  - [ ] WebSocket indication?
+  - [ ] ehttp error handling 
