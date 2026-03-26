@@ -8,6 +8,7 @@ use eframe::CreationContext;
 use egui::scroll_area::ScrollBarVisibility;
 use epaint::text::{LayoutJob, TextFormat, TextWrapping};
 use indexmap::IndexMap;
+use wasm_bindgen::prelude::wasm_bindgen;
 use crate::utils::truncate_text;
 
 #[cfg(target_arch = "wasm32")]
@@ -125,6 +126,17 @@ impl App {
     }
 }
 
+macro_rules! console_log {
+    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
+}
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
+
 fn update_feed(ctx: egui::Context, rw: Arc<RwLock<IndexMap<String, UnifyOutput>>>, counter: Arc<RwLock<Count>>, path: &str) {
     let page_num: u32 = {
         let mut lock = counter.write().unwrap();
@@ -141,8 +153,15 @@ fn update_feed(ctx: egui::Context, rw: Arc<RwLock<IndexMap<String, UnifyOutput>>
     let counter_clone = counter.clone();
     ehttp::fetch(ehttp::Request::get(history), move |result| {
         if let Ok(response) = result
+            && response.status / 100 == 2
             && let Some(data) = response.text() {
-                let out: Vec<UnifyOutput> = serde_json::from_str(data).unwrap();
+                let out: Vec<UnifyOutput> = match serde_json::from_str(data) {
+                    Ok(t)=>t,
+                    Err(e) => {
+                        console_log!("Failed to serialize, data: \'{}\', error: \'{}\'", data, e);
+                        return;
+                    }
+                };
                 if !out.is_empty() {
                     let mut lock = counter_clone.write().unwrap();
                     lock.0 = Some(page_num + 1);
