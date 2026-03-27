@@ -46,7 +46,7 @@ pub fn truncate_text(text: &str, tlen: usize) -> &str {
     let c = text.chars().nth(tlen);
     match c {
         Some(s) => match char::is_whitespace(s) {
-            true => text.split_at(tlen).0,
+            true => split_add(&text, tlen).0,
             false => {
                 let chars: Vec<_> = text.chars().collect();
                 let truncated = chars.split_at(tlen);
