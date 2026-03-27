@@ -11,6 +11,33 @@ fn find_char_bytes_len(ch: &char) -> i32 {
     clen
 }
 
+fn _split_sub(s: &str, mut ws: usize) -> (&str, &str) {
+    let init = ws;
+    loop {
+        match s.split_at_checked(ws) {
+            Some(v) => return v,
+            None => {
+                ws -= 1;
+            }
+        }
+    }
+}
+
+fn split_add(s: &str, mut ws: usize) -> (&str, &str) {
+    let init = ws;
+    loop {
+        match s.split_at_checked(ws) {
+            Some(v) => return v,
+            None => {
+                ws += 1;
+                if (ws - init > 10) {
+                    return _split_sub(s, ws);
+                }
+            }
+        }
+    }
+}
+
 pub fn truncate_text(text: &str, tlen: usize) -> &str {
     if text.len() <= tlen {
         return text;
@@ -47,8 +74,8 @@ pub fn truncate_text(text: &str, tlen: usize) -> &str {
                 }
 
                 match next_ws > prev_ws && prev_ws > 0 {
-                    true => text.split_at(prev_ws as usize).0,
-                    false => text.split_at(next_ws as usize).1,
+                    true => split_add(&text, prev_ws as usize).0,
+                    false => split_add(&text, next_ws as usize).1,
                 }
             }
         },
