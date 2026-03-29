@@ -16,6 +16,7 @@ TODO:
   - [ ] SQL database
   - [ ] Server side output filter
   - [ ] PWA Push API handling
+  - [ ] `embeddinggemma-300m ` embedding for documents
 - RSS Source
   - [ ] Google News Domain based (i.e. lazy API)
   - [x] Hacker News
@@ -28,4 +29,6 @@ TODO:
   - [ ] Search feature
   - [ ] PWA ~Push API~ Background sync on offline + periodic sync
   - [ ] WebSocket indication?
-  - [ ] ehttp error handling 
+  - [ ] ehttp error handling
+  - [ ] rank by embedding/time
+  - [ ] filter by content/embedding/source/time
