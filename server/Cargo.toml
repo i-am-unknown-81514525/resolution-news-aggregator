@@ -10,8 +10,7 @@ chrono = "0.4.44"
 serde_json = "1.0.149" # Data sending to client
 tokio = { version = "1.50.0", features = ["full"] }
 toml = "1.0.4" # Source config
-sqlx = { version = "=0.8.1", features = ["sqlite", "runtime-tokio", "chrono"] } # Store historical news
-rusqlite = "=0.32.1"
+sqlx = { version = "=0.8.1", features = ["runtime-tokio", "chrono", "postgres", "migrate"] } # Store historical news
 async-trait = "0.1.89"
 tower-http = { version = "0.6.8", features = ["trace"] }
 headers = "0.4.1"
@@ -33,6 +32,7 @@ rand = "0.10.0"
 html-escape = { version = "0.2.13", optional = true }
 html2text = { version = "0.16.7", optional = true }
 fastembed = { version = "5.13.0", features = ["hf-hub", "hf-hub-native-tls", "ort-download-binaries-native-tls", "ort-load-dynamic"], default-features = false, optional = true }
+pgvector = { version = "0.4.1", features = ["serde", "sqlx"] }
 
 [features]
 html_handle = ["dep:html-escape", "dep:html2text"]

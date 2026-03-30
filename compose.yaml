@@ -15,11 +15,22 @@ services:
       dockerfile: Dockerfile.server
     environment:
       - RUST_LOG=info
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     restart: unless-stopped
     volumes:
       - ./config.toml:/app/config.toml:ro
+    depends_on:
+      - database
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.client
     restart: unless-stopped
+  database:
+    image: postgres:18
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./pgdata:/var/lib/postgresql
