@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::fs::read;
 use std::panic::resume_unwind;
-use egui::{Align, Color32, PointerButton, RichText};
+use egui::{Align, Color32, Id, PointerButton, RichText};
 use epaint::{CornerRadius, FontFamily, FontId};
 use std::sync::mpsc::{Sender, Receiver, channel};
 use std::sync::{Arc, Mutex, RwLock};
@@ -74,7 +74,7 @@ impl Default for App {
     fn default() -> Self {
         let mut dashmap: DashMap<u32, Arc<Mutex<Windows>>> = DashMap::new();
         dashmap.entry(0).or_insert(Arc::new(Mutex::new(Windows {
-            id: 0,
+            id: Id::new(0),
             name: "Unify".to_string(),
             filters: FilterOption::NotVisible,
             can_close: false,

@@ -20,7 +20,7 @@ impl Default for FilterOption {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Windows {
-    pub id: u32,
+    pub id: Id,
     pub name: String,
     pub filters: FilterOption,
     pub can_close: bool,
@@ -33,7 +33,7 @@ impl CtxObj for Windows {
     fn show(&mut self, ctx: &mut Context) -> () {
         let now = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
         let mut base = egui::Window::new(self.name.clone())
-            .id(Id::new(self.id))
+            .id(self.id)
             .scroll([false, true])
             .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden);
         if self.can_close {
