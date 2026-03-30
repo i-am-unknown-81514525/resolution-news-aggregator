@@ -36,7 +36,8 @@ impl GoogleMrssItem {
             hash_key: vec![
                 self.guid.id.clone(),
                 format!("google:{}:{}:{}", self.title, self.source.publisher, self.publish_date.timestamp_micros())
-            ]
+            ],
+            embedding: None,
         }
     }
 }

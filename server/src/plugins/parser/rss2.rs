@@ -32,7 +32,8 @@ impl Rss2RssItem {
                 format!("rss2:{}:{}:{}", self.title, self.description, self.link),
                 format!("rss2:{}:{}:{}", self.title, self.description, self.publish_date.timestamp_micros()),
                 format!("rss2:{}:{}", self.link, self.publish_date.timestamp_micros())
-            ]
+            ],
+            embedding: None,
         }
     }
 }

@@ -26,7 +26,8 @@ impl HackerNewsRssItem {
             score: None,
             source: SourceKind::LinkedSource("Hacker News".to_string(), self.comments.clone()),
             link: self.link.clone(),
-            hash_key: vec![id]
+            hash_key: vec![id],
+            embedding: None,
         }
     }
 }

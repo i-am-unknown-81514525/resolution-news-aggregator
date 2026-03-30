@@ -55,7 +55,8 @@ impl RedditFeedEntry {
             score: None,
             source: SourceKind::LinkedSource("Reddit".to_string(), self.author.uri.clone()),
             link: self.link.href.clone(),
-            hash_key: vec![id]
+            hash_key: vec![id],
+            embedding: None,
         }
     }
 }
