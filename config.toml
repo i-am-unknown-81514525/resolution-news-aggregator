@@ -20,8 +20,18 @@ update_interval = 2400
 
 [[config]]
 type = "GoogleRssSearch"
-query = "(CVE OR vulnerability) whe: 7d"
+query = "(CVE OR vulnerability) when: 7d"
 update_interval = 2400
+
+[[config]]
+type = "GoogleRssSearch"
+query = "from:404media.co"
+update_interval = 2400
+
+[[config]]
+type = "Youtube"
+query = "UCx-PpwbajI5ToAY0WwJO2Kg" # https://www.youtube.com/@PortalRunner
+update_interval = 1200
 
 [[config]]
 type = "Youtube"
