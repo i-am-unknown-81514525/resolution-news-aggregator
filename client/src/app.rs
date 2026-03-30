@@ -121,6 +121,9 @@ impl App {
                 ctx.request_repaint();
             }
         });
+        for item in result.history.read().unwrap().iter(){
+            process(result.windows.clone(), item.1.clone());
+        }
         update_feed(cc.egui_ctx.clone(), result.history.clone(), result.internal.read().unwrap().page.clone(), &result.src, result.windows.clone());
         result
     }
