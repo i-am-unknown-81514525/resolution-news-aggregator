@@ -32,13 +32,14 @@ pub struct Windows {
 impl CtxObj for Windows {
     fn show(&mut self, ctx: &mut Context) -> () {
         let now = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
-        egui::Window::new(self.name.clone())
+        let mut base = egui::Window::new(self.name.clone())
             .id(Id::new(self.id))
             .scroll([false, true])
-            .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
-            .open(&mut self.is_open)
-            .collapsible(self.can_close)
-            .show(ctx, |ui| {
+            .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden);
+        if self.can_close {
+            base = base.open(&mut self.is_open);
+        }
+        base.show(ctx, |ui| {
                 ui.vertical(|ui| {
                     if let Some(v) = self.matched.clone() {
                         for item in v
