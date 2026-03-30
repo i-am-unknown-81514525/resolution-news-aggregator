@@ -40,18 +40,21 @@ impl CtxObj for Windows {
             base = base.open(&mut self.is_open);
         }
         base.show(ctx, |ui| {
-                ui.vertical(|ui| {if let Some(mut v) = self.matched.take() {
-                    let slice = v.make_contiguous();
-                    slice.sort_by_key(|x| -x.time.timestamp_micros());
-                    for item in &v {
-                        if now < item.time {
-                            continue;
+                ui.vertical(|ui| {
+                    if let Some(v) = self.matched.as_mut() {
+                        let slice = v.make_contiguous();
+
+                        slice.sort_by_key(|x| -x.time.timestamp_micros());
+
+                        for item in v.iter() {
+                            if now < item.time {
+                                continue;
+                            }
+                            NewsFrame(item.clone()).show(ui);
                         }
-                        NewsFrame(item.clone()).show(ui);
                     }
-                    self.matched = Some(v);
                 }
-                }).inner
+                ).inner
             });
     }
 }
