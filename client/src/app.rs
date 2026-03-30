@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fs::read;
 use std::panic::resume_unwind;
 use egui::{Align, Color32, PointerButton, RichText};
@@ -183,6 +184,9 @@ fn update_feed(ctx: egui::Context, rw: Arc<RwLock<IndexMap<String, UnifyOutput>>
 fn process(windows: Arc<DashMap<u32, Arc<Mutex<Windows>>>>, news: UnifyOutput) {
     for window in windows.iter() {
         let mut window = window.lock().unwrap();
+        if let None = window.matched {
+            window.matched = Some(VecDeque::new()); // temp
+        }
         match window.filters.clone() {
             FilterOption::NotVisible | FilterOption::Visible(None) => {
                 window.matched.as_mut().unwrap().push_front(news.clone());
