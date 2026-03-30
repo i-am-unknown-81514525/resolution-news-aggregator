@@ -1,3 +1,5 @@
+use std::fs::read;
+use std::panic::resume_unwind;
 use egui::{Align, Color32, PointerButton, RichText};
 use epaint::{CornerRadius, FontFamily, FontId};
 use std::sync::mpsc::{Sender, Receiver, channel};
@@ -16,7 +18,13 @@ use crate::wasm_websocket::WasmWebsocket;
 
 
 use common::unify::{SourceKind, UnifyOutput};
+use crate::comp::news_frame::NewsFrame;
+use crate::comp;
 use crate::dt::format_fuzzy_dist;
+
+use dashmap::{DashMap, DashSet};
+use crate::comp::windows::{FilterOption, Windows};
+use crate::comp::CtxObj;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 
@@ -55,27 +63,34 @@ pub struct App {
 
     pub history: Arc<RwLock<IndexMap<String, UnifyOutput>>>,
 
+    pub windows: Arc<DashMap<u32, Arc<Mutex<Windows>>>>,
+
     #[serde(skip)] 
     pub internal: Arc<RwLock<Internal>>
 }
 
 impl Default for App {
     fn default() -> Self {
+        let mut dashmap: DashMap<u32, Arc<Mutex<Windows>>> = DashMap::new();
+        dashmap.entry(0).or_insert(Arc::new(Mutex::new(Windows {
+            id: 0,
+            name: "Unify".to_string(),
+            filters: FilterOption::NotVisible,
+            can_close: false,
+            is_open: true,
+            matched: None
+        })));
         Self {
             src: "".to_string(),
             history: Arc::new(RwLock::new(IndexMap::new())),
             internal: Arc::new(RwLock::new(Internal::new())),
+            windows: Arc::new(dashmap),
         }
     }
 }
 impl App {
     /// Called once before the first frame.
     pub fn new(cc: &CreationContext) -> Self {
-        // This is also where you can customize the look and feel of egui using
-        // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-
-        // Load previous app state (if any).
-        // Note that you must enable the `persistence` feature for this to work.
         let result: App;
         if let Some(storage) = cc.storage {
             result = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
@@ -91,13 +106,11 @@ impl App {
                 let font_bytes = response.bytes;
                 let mut fonts = egui::FontDefinitions::default();
 
-                // Insert the CJK font data
                 fonts.font_data.insert(
                     "NotoSansCJKjp".to_owned(),
                     Arc::from(egui::FontData::from_owned(font_bytes)),
                 );
 
-                // Add it as the primary font for Proportional text
                 fonts.families
                     .get_mut(&egui::FontFamily::Proportional)
                     .unwrap()
@@ -107,21 +120,7 @@ impl App {
                 ctx.request_repaint();
             }
         });
-
-        // let mut history: String = result.src.clone();
-        // history.push_str(&"/api/history");
-        // let history_rw = result.history.clone();
-        // ehttp::fetch(ehttp::Request::get(history), move |result| {
-        //     if let Ok(response) = result {
-        //         if let Some(data) = response.text() {
-        //             let out: Vec<UnifyOutput> = serde_json::from_str(data).unwrap();
-        //             for item in out {
-        //                 history_rw.write().unwrap().entry(item.id.clone()).or_insert(item);
-        //             }
-        //         }
-        //     }
-        // });
-        update_feed(cc.egui_ctx.clone(), result.history.clone(), result.internal.read().unwrap().page.clone(), &result.src);
+        update_feed(cc.egui_ctx.clone(), result.history.clone(), result.internal.read().unwrap().page.clone(), &result.src, result.windows.clone());
         result
     }
 }
@@ -137,7 +136,7 @@ extern "C" {
 }
 
 
-fn update_feed(ctx: egui::Context, rw: Arc<RwLock<IndexMap<String, UnifyOutput>>>, counter: Arc<RwLock<Count>>, path: &str) {
+fn update_feed(ctx: egui::Context, rw: Arc<RwLock<IndexMap<String, UnifyOutput>>>, counter: Arc<RwLock<Count>>, path: &str, windows: Arc<DashMap<u32, Arc<Mutex<Windows>>>>) {
     let page_num: u32 = {
         let mut lock = counter.write().unwrap();
         let v = match lock.0 {
@@ -170,13 +169,30 @@ fn update_feed(ctx: egui::Context, rw: Arc<RwLock<IndexMap<String, UnifyOutput>>
                     lock.0 = None;
                 }
                 for item in out {
-                    rw.write().unwrap().entry(item.id.clone()).or_insert(item);
+                    let cl = windows.clone();
+                    rw.write().unwrap().entry(item.id.clone()).or_insert_with(|| {
+                        process(cl, item.clone());
+                        item
+                    });
                 }
                 ctx.request_repaint();
             }
     });
 }
 
+fn process(windows: Arc<DashMap<u32, Arc<Mutex<Windows>>>>, news: UnifyOutput) {
+    for window in windows.iter() {
+        match window.lock().unwrap().filters.clone() {
+            FilterOption::NotVisible | FilterOption::Visible(None) => {
+                window.lock().unwrap().matched.as_mut().unwrap().push_front(news.clone());
+            }
+            FilterOption::Visible(Some(filter)) => {
+                // TODO : filter logic
+                window.lock().unwrap().matched.as_mut().unwrap().push_front(news.clone());
+            }
+        }
+    }
+}
 
 impl eframe::App for App {
     /// Called by the framework to save state before shutdown.
@@ -198,7 +214,7 @@ impl eframe::App for App {
                 }
             }
         }
-        update_feed(ctx.clone(), self.history.clone(), self.internal.read().unwrap().page.clone(), &self.src);
+        update_feed(ctx.clone(), self.history.clone(), self.internal.read().unwrap().page.clone(), &self.src, self.windows.clone());
         if self.internal.read().unwrap().initial {
             self.internal.write().unwrap().initial = false;
             ctx.request_repaint();
@@ -209,99 +225,18 @@ impl eframe::App for App {
         }
         let has_update = !update.is_empty();
         for item in update {
-            self.history.write().unwrap().entry(item.id.clone()).or_insert(item);
+            let cl = self.windows.clone();
+            self.history.write().unwrap().entry(item.id.clone()).or_insert_with(|| {
+                process(cl, item.clone());
+                item
+            });
         }
-        // if has_update {
-        //     self.internal.write().unwrap().last_update = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
-        // } else {
-        //     let curr = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
-        //     if (curr - self.internal.read().unwrap().last_update).as_seconds_f32() > 600f32 {
-        //         let mut l = self.internal.write().unwrap();
-        //         l.ws = None; // Reconnect
-        //         l.page.write().unwrap().0 = Some(0);
-        //         l.last_update = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
-        //     }
-        // }
 
         self.history.write().unwrap().sort_by(|_k1, v1, _k2, v2| v1.time.timestamp_micros().cmp(&v2.time.timestamp_micros()));
 
-        let now = chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap());
-        egui::Window::new("News Panel")
-            .scroll([false, true])
-            .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
-            .show(ctx, |ui| {
-            ui.vertical(|ui| {
-                for item in self.history.read().unwrap().iter().map(|x| x.1).rev().collect::<Vec<&UnifyOutput>>()
-                {
-                    if item.time > now {
-                        continue;
-                    }
-                    egui::containers::Frame::new()
-                        .corner_radius(CornerRadius::same(6))
-                        .outer_margin(5.0)
-                        .show(ui, |ui| {
-                            ui.vertical(|ui| {
-                                //ui.hyperlink_to(item.title.clone(), item.link.clone());
-                                let mut layout = LayoutJob::default();
-                                layout.wrap = TextWrapping::wrap_at_width(ui.available_width());
-                                layout.round_output_to_gui = true;
-                                layout.break_on_newline = true;
-                                layout.halign = Align::LEFT;
-                                layout.append(&item.title, 0.0, TextFormat {
-                                    font_id: FontId::new(14.0, FontFamily::Proportional),
-                                    color: ui.visuals().hyperlink_color,
-                                    ..Default::default()
-                                },);
-
-                                let link = ui.add(
-                                    egui::Hyperlink::from_label_and_url(
-                                        layout,
-                                        item.link.clone()
-                                    ).open_in_new_tab(true)
-                                );
-                                if link.secondary_clicked() {
-                                    ctx.copy_text(item.link.clone());
-                                }
-                                if !item.description.is_empty() {
-                                    ui.label(egui::RichText::new(truncate_text(&item.description, 600)).size(11.0f32));
-                                };
-                                let mut tiny_text = String::new();
-                                tiny_text.push_str(&item.organisation);
-                                if let SourceKind::Source(x) = item.source.clone() {
-                                    tiny_text.push_str(" via ");
-                                    tiny_text.push_str(&x);
-                                } else if let SourceKind::LinkedSource(x, _) = item.source.clone() {
-                                    tiny_text.push_str(" via ");
-                                    tiny_text.push_str(&x);
-                                }
-                                ui.horizontal(|ui| {
-                                    if let SourceKind::LinkedSource(_, l) = item.source.clone() {
-                                        let link = ui.add(
-                                            egui::Hyperlink::from_label_and_url(
-                                                RichText::new(tiny_text)
-                                                    .color(Color32::from_rgb(128, 128, 128))
-                                                    .size(9.0f32),
-                                                l.clone()
-                                            ).open_in_new_tab(true)
-                                        );
-                                        if link.secondary_clicked() {
-                                            ctx.copy_text(l);
-                                        }
-                                    } else {
-                                        ui.label(RichText::new(tiny_text).color(Color32::from_rgb(128, 128, 128)).size(9.0f32));
-                                    }
-                                    ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
-                                        let time = ui.label(format_fuzzy_dist(item.time));
-                                        if time.clicked() {
-                                            ctx.copy_text(item.time.to_rfc3339());
-                                        }
-                                    });
-                                });
-                            }).inner
-                        }).inner
-                }
-            }).inner
-        });
+        for window in self.windows.iter() {
+            window.lock().unwrap().show(&mut ctx.clone());
+        }
 
         if has_update {
             ctx.request_repaint();

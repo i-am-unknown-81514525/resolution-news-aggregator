@@ -6,6 +6,7 @@ mod app;
 mod wasm_websocket;
 mod dt;
 mod utils;
+mod comp;
 // mod comp;
 
 pub use app::App;

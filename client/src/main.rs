@@ -6,7 +6,7 @@ mod app;
 mod wasm_websocket;
 mod dt;
 mod utils;
-// mod comp;
+mod comp;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
