@@ -114,7 +114,8 @@ pub struct UnifyOutput {
     pub source: SourceKind, // This describes where the content was received from
     pub score: Option<f32>, // Score for importance of the news
     pub link: String,
-    pub hash_key: Vec<String>
+    pub hash_key: Vec<String>,
+    pub embedding: Option<Vec<f32>>
 }
 
 impl UnifyOutput {
