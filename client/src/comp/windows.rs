@@ -40,16 +40,17 @@ impl CtxObj for Windows {
             base = base.open(&mut self.is_open);
         }
         base.show(ctx, |ui| {
-                ui.vertical(|ui| {
-                    if let Some(v) = self.matched.clone() {
-                        for item in v
-                        {
-                            if (now < item.time) {
-                                continue;
-                            }
-                            NewsFrame(item.clone()).show(ui);
+                ui.vertical(|ui| {if let Some(mut v) = self.matched.take() {
+                    let slice = v.make_contiguous();
+                    slice.sort_by_key(|x| -x.time.timestamp_micros());
+                    for item in &v {
+                        if now < item.time {
+                            continue;
                         }
+                        NewsFrame(item.clone()).show(ui);
                     }
+                    self.matched = Some(v);
+                }
                 }).inner
             });
     }
