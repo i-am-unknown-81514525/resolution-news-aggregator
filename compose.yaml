@@ -28,7 +28,7 @@ services:
       dockerfile: Dockerfile.client
     restart: unless-stopped
   database:
-    image: postgres:18
+    image: pgvector/pgvector:pg18-trixie
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
