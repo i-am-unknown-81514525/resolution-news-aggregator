@@ -1,6 +1,7 @@
 mod plugins;
 mod value_enum;
 mod config;
+mod model;
 
 use std::collections::HashMap;
 use axum::{
@@ -35,6 +36,10 @@ use rand::Rng;
 
 use std::env;
 use std::fmt::format;
+use std::path::PathBuf;
+use cfg_if::cfg_if;
+
+use model::{Model, get_model};
 
 struct ServerState {
     // conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
@@ -152,14 +157,16 @@ async fn main() {
         .max_connections(5)
         .connect(&format!("{}@{}:{}", postgres_username, postgres_password, url))
         .await.unwrap();
-
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+
+    let model = get_model();
 
     let (sender, receiver) = tokio::sync::broadcast::channel::<UnifyOutputRaw>(1024);
     let state = Arc::new(Mutex::new(ServerState::new(receiver)));
 
     let config_str = String::from_utf8(std::fs::read("config.toml").unwrap()).unwrap();
     let configs: crate::config::Configs = toml::from_str(&config_str).unwrap();
+
     for config in configs.configs {
         let _clone = state.clone();
         let sender_clone = sender.clone();
@@ -168,7 +175,7 @@ async fn main() {
             background_fetching(&conf_clone, sender_clone, _clone).await;
         });
     }
-    let _clone = state.clone();
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -177,6 +184,9 @@ async fn main() {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
+
+
+    let _clone = state.clone();
     let app = Router::new()
         .route("/ws", any(news_ws_handler))
         .route("/api/history", any(history_handler))

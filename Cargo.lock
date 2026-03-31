@@ -3218,6 +3218,7 @@ dependencies = [
  "async-trait",
  "axum",
  "axum-extra",
+ "cfg-if",
  "chrono",
  "fastembed",
  "futures-util",

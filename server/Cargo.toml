@@ -33,6 +33,7 @@ html-escape = { version = "0.2.13", optional = true }
 html2text = { version = "0.16.7", optional = true }
 fastembed = { version = "5.13.0", features = ["hf-hub", "hf-hub-native-tls", "ort-download-binaries-native-tls", "ort-load-dynamic"], default-features = false, optional = true }
 pgvector = { version = "0.4.1", features = ["serde", "sqlx"] }
+cfg-if = "1.0.4"
 
 [features]
 html_handle = ["dep:html-escape", "dep:html2text"]

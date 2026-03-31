@@ -20,6 +20,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./config.toml:/app/config.toml:ro
+      - ./model_data:/app/model_data
     depends_on:
       - database
   frontend:
