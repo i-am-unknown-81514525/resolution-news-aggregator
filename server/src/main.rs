@@ -33,6 +33,9 @@ use crate::config::{Config};
 use ahash::RandomState;
 use rand::Rng;
 
+use std::env;
+use std::fmt::format;
+
 struct ServerState {
     // conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
     receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>,
@@ -142,6 +145,16 @@ pub async fn background_fetching(
 
 #[tokio::main]
 async fn main() {
+    let postgres_username = env::var("POSTGRES_USER").unwrap_or("postgres".to_string());
+    let postgres_password = env::var("POSTGRES_PASSWORD").unwrap_or("please-change-7a9ebb7fc05ac78b8cb04bf8".to_string());
+    let url = env::var("DATABASE_URL").unwrap_or("postgres:5432".to_string());
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&format!("{}@{}:{}", postgres_username, postgres_password, url))
+        .await.unwrap();
+
+    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+
     let (sender, receiver) = tokio::sync::broadcast::channel::<UnifyOutputRaw>(1024);
     let state = Arc::new(Mutex::new(ServerState::new(receiver)));
 

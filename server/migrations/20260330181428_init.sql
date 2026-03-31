@@ -11,6 +11,6 @@ CREATE TABLE unify(
     source TEXT NULL,
     score FLOAT NULL,
     link TEXT NULL,
-    hash_key TEXT[],
-    embedding vector(768)
+    hash_key TEXT[] NOT NULL,
+    embedding vector(768) NULL
 );
