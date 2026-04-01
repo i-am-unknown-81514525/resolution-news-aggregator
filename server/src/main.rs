@@ -39,6 +39,7 @@ use std::fmt::format;
 use std::path::PathBuf;
 use cfg_if::cfg_if;
 use sqlx::PgPool;
+use tracing::log::warn;
 use model::{Model, get_model};
 use crate::model::{embedding_thread, Task};
 
@@ -108,44 +109,48 @@ pub async fn background_fetching(
     state: Arc<Mutex<ServerState>>,
 ) -> () {
     // testing currently - should be reading config file in future instead
+    let pool = state.lock().await.pool.clone();
     loop {
         let span = tracing::info_span!("background_fetching");
 
         span.in_scope(async || {
             let outputs = fetch_with_config(config).await;
-            if let Ok(outputs) = outputs {
-                info!("Pushing {} outputs", outputs.len());
-                for output in outputs {
-                    let raw = output.to_raw();
-                    if !state
-                        .lock()
-                        .await
-                        .hash_data
-                        .clone()
-                        .read()
-                        .await
-                        .contains_key(&output.id)
-                    {
-                        let ptr_hash = state.lock().await.hash_data.clone();
-                        let ptr_history = state.lock().await.history.clone();
-                        let mut hash_lock = ptr_hash.write().await;
-                        let mut history_lock = ptr_history.write().await;
-                        let allowed = output.hash_key.iter().all(|k| !hash_lock.contains_key(k));
-                        if !allowed {continue;}
-                        let mut rng = rand::rng();
-                        let his_key = loop {
-                            let k = rng.next_u64();
-                            if !history_lock.contains_key(&k) { break k; }
-                        };
+            if let Err(err) = outputs {
+                warn!("Error fetching the {}, error: {}", config, err);
+                return;
+            }
+            let Ok(outputs) = outputs;
+            info!("Pushing {} outputs from {}", outputs.len(), config);
+            for output in outputs {
+                let raw = output.to_raw();
+                if !state
+                    .lock()
+                    .await
+                    .hash_data
+                    .clone()
+                    .read()
+                    .await
+                    .contains_key(&output.id)
+                {
+                    let ptr_hash = state.lock().await.hash_data.clone();
+                    let ptr_history = state.lock().await.history.clone();
+                    let mut hash_lock = ptr_hash.write().await;
+                    let mut history_lock = ptr_history.write().await;
+                    let allowed = output.hash_key.iter().all(|k| !hash_lock.contains_key(k));
+                    if !allowed {continue;}
+                    let mut rng = rand::rng();
+                    let his_key = loop {
+                        let k = rng.next_u64();
+                        if !history_lock.contains_key(&k) { break k; }
+                    };
 
-                        history_lock.insert(his_key, Arc::new(output.to_raw()));
-                        drop(history_lock);
-                        for key in output.hash_key {
-                            hash_lock.insert(key, his_key);
-                        }
-                        let recv_count = sender.send(raw).unwrap_or(0);
-                        info!("Pushed document {} to {} receivers", output.id, recv_count);
+                    history_lock.insert(his_key, Arc::new(output.to_raw()));
+                    drop(history_lock);
+                    for key in output.hash_key {
+                        hash_lock.insert(key, his_key);
                     }
+                    let recv_count = sender.send(raw).unwrap_or(0);
+                    info!("Pushed document {} to {} receivers", output.id, recv_count);
                 }
             }
         }).await;

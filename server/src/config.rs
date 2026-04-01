@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use serde::Deserialize;
 
 #[derive(Deserialize, Clone)]
@@ -6,6 +7,12 @@ pub struct Config {
     pub(crate) rss_type: String,
     pub(crate) query: String,
     pub(crate) update_interval: u16
+}
+
+impl Display for Config {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Config {{rss_type: \"{}\", query: \"{}\", update_interval: {}}}", self.rss_type, self.query, self.update_interval)
+    }
 }
 
 #[derive(Deserialize, Clone)]
