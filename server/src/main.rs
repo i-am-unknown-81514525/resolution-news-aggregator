@@ -34,26 +34,31 @@ use crate::config::{Config};
 use ahash::RandomState;
 use rand::Rng;
 
-use std::env;
+use std::{env, thread};
 use std::fmt::format;
 use std::path::PathBuf;
 use cfg_if::cfg_if;
-
+use sqlx::PgPool;
 use model::{Model, get_model};
+use crate::model::{embedding_thread, Task};
 
 struct ServerState {
     // conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
     receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>,
     history: Arc<RwLock<IndexMap<u64, Arc<UnifyOutputRaw>>>>,
-    hash_data: Arc<RwLock<HashMap<String, u64, RandomState>>>
+    hash_data: Arc<RwLock<HashMap<String, u64, RandomState>>>,
+    sender: tokio::sync::mpsc::UnboundedSender<Task>,
+    pool: PgPool,
 }
 
 impl ServerState {
-    pub fn new(receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>) -> Self {
+    pub fn new(receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>, sender: tokio::sync::mpsc::UnboundedSender<Task>, pool: PgPool) -> Self {
         Self {
             receiver,
             history: Arc::new(RwLock::new(IndexMap::with_capacity(1000))),
-            hash_data: Arc::new(RwLock::new(HashMap::default()))
+            hash_data: Arc::new(RwLock::new(HashMap::default())),
+            sender,
+            pool
         }
     }
 }
@@ -153,16 +158,20 @@ async fn main() {
     let postgres_username = env::var("POSTGRES_USER").unwrap_or("postgres".to_string());
     let postgres_password = env::var("POSTGRES_PASSWORD").unwrap_or("please-change-7a9ebb7fc05ac78b8cb04bf8".to_string());
     let url = env::var("DATABASE_URL").unwrap_or("postgres:5432".to_string());
-    let pool = sqlx::postgres::PgPoolOptions::new()
+    let pool: PgPool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(5)
-        .connect(&format!("{}@{}:{}", postgres_username, postgres_password, url))
+        .connect(&format!("{}:{}@{}", postgres_username, postgres_password, url))
         .await.unwrap();
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
+    let (sender, receiver) = tokio::sync::broadcast::channel::<UnifyOutputRaw>(1024);
+    let (model_sender, model_receiver) = tokio::sync::mpsc::unbounded_channel::<Task>();
+    let state = Arc::new(Mutex::new(ServerState::new(receiver, model_sender, pool.clone())));
+
+
     let model = get_model();
 
-    let (sender, receiver) = tokio::sync::broadcast::channel::<UnifyOutputRaw>(1024);
-    let state = Arc::new(Mutex::new(ServerState::new(receiver)));
+    thread::spawn(move || { embedding_thread(model, model_receiver); });
 
     let config_str = String::from_utf8(std::fs::read("config.toml").unwrap()).unwrap();
     let configs: crate::config::Configs = toml::from_str(&config_str).unwrap();
@@ -171,6 +180,7 @@ async fn main() {
         let _clone = state.clone();
         let sender_clone = sender.clone();
         let conf_clone = config.clone();
+
         tokio::spawn(async move {
             background_fetching(&conf_clone, sender_clone, _clone).await;
         });
