@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO\n    public.unify(id, organisation, title, description, time, source, score, link, hash_key)\nVALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)\nON CONFLICT DO NOTHING\nRETURNING idx",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "idx",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamp",
+        "Text",
+        "Float8",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e526b3f03b0f5e445e97bec3f695b3b6752f050c7d2835bd515e1fdc65cc2184"
+}

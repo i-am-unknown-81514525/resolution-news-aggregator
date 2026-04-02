@@ -38,10 +38,11 @@ use std::{env, thread};
 use std::fmt::format;
 use std::path::PathBuf;
 use cfg_if::cfg_if;
-use sqlx::PgPool;
+use sqlx::{Error, Executor, PgPool, Postgres};
 use tracing::log::warn;
 use model::{Model, get_model};
 use crate::model::{embedding_thread, Task};
+use pgvector::Vector;
 
 struct ServerState {
     // conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
@@ -119,39 +120,75 @@ pub async fn background_fetching(
                 warn!("Error fetching the {}, error: {}", config, err);
                 return;
             }
-            let Ok(outputs) = outputs;
+            let Ok(outputs) = outputs else {unreachable!()};
             info!("Pushing {} outputs from {}", outputs.len(), config);
+            let mut proc_id: Vec<(i64, UnifyOutput)> = Vec::new();
             for output in outputs {
-                let raw = output.to_raw();
-                if !state
-                    .lock()
-                    .await
-                    .hash_data
-                    .clone()
-                    .read()
-                    .await
-                    .contains_key(&output.id)
-                {
-                    let ptr_hash = state.lock().await.hash_data.clone();
-                    let ptr_history = state.lock().await.history.clone();
-                    let mut hash_lock = ptr_hash.write().await;
-                    let mut history_lock = ptr_history.write().await;
-                    let allowed = output.hash_key.iter().all(|k| !hash_lock.contains_key(k));
-                    if !allowed {continue;}
-                    let mut rng = rand::rng();
-                    let his_key = loop {
-                        let k = rng.next_u64();
-                        if !history_lock.contains_key(&k) { break k; }
-                    };
-
-                    history_lock.insert(his_key, Arc::new(output.to_raw()));
-                    drop(history_lock);
-                    for key in output.hash_key {
-                        hash_lock.insert(key, his_key);
+                let result = sqlx::query!("INSERT INTO
+    public.unify(id, organisation, title, description, time, source, score, link, hash_key)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+ON CONFLICT DO NOTHING
+RETURNING idx",
+                    output.id,
+                    output.organisation,
+                    output.title,
+                    output.description,
+                    output.time.naive_utc(),
+                    serde_json::to_string(&output.source).ok(),
+                    output.score.map(|x| x as f64),
+                    output.link,
+                    output.hash_key.as_slice(),
+                ).fetch_one(&pool).await;
+                match result {
+                    Ok(record) => {
+                        proc_id.push((record.idx, output));
+                    },
+                    Err(Error::RowNotFound) => {}
+                    Err(err) => {
+                        warn!("Database failure on creating record: {}", err);
                     }
-                    let recv_count = sender.send(raw).unwrap_or(0);
-                    info!("Pushed document {} to {} receivers", output.id, recv_count);
                 }
+            }
+            if proc_id.len() == 0 {
+                return;
+            }
+            let task = Task::create(proc_id.iter().map(|x| x.1.clone()).clone().collect());
+            state.lock().await.sender.send(task.0).unwrap();
+            let results = match task.1.await {
+                Ok(v) => v,
+                Err(e) => vec![None; proc_id.len()]
+            };
+            for (i, result) in results.iter().enumerate() {
+                let pair = &proc_id[i];
+                if let Some(embedding) = result {
+                    let query = sqlx::query::<Postgres>(
+                        "UPDATE public.unify
+SET embedding = $2
+WHERE idx = $1")
+                        .bind(pair.0)
+                        .bind(Vector::from(embedding.clone()))
+                        .execute(&pool).await;
+                    if let Err(err) = query {
+                        warn!("Database failure on updating embedding: {}", err);
+                    }
+                }
+            }
+            let ids = proc_id.iter().map(|x| x.0).collect::<Vec<i64>>();
+            let multi = match sqlx::query_as::<Postgres, UnifyOutput>(
+                "SELECT * FROM public.unify WHERE idx = ANY($1)"
+            )
+                .bind(ids.as_slice()) // You use .bind() for runtime queries
+                .fetch_all(&pool)
+                .await {
+                Ok(r) => r,
+                Err(e) => {
+                    warn!("Fail to read from db", e);
+                    return;
+                }
+            };
+            for item in multi {
+                let recv_count = sender.send(item.to_raw()).await.unwrap_or(0);
+                info!("Pushed document {} to {} receivers", item.id, recv_count);
             }
         }).await;
         tokio::time::sleep(Duration::from_secs(config.update_interval as u64)).await;

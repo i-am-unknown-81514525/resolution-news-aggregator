@@ -46,7 +46,7 @@ pub struct Task {
 }
 
 impl Task {
-    fn create(data: Vec<UnifyOutput>) -> (Self, oneshot::Receiver<Vec<Option<Vec<f32>>>>) {
+    pub fn create(data: Vec<UnifyOutput>) -> (Self, oneshot::Receiver<Vec<Option<Vec<f32>>>>) {
         let (tx, rx) = oneshot::channel();
         (
             Self {
@@ -59,7 +59,7 @@ impl Task {
     }
 }
 
-pub fn embedding_thread(model: Model, mut receiver: tokio::sync::mpsc::UnboundedReceiver<Task>) {
+pub fn embedding_thread(mut model: Model, mut receiver: tokio::sync::mpsc::UnboundedReceiver<Task>) {
     loop {
         let mut tasks = Vec::with_capacity(32);
         if receiver.blocking_recv_many(&mut tasks, 32) == 0 {
@@ -95,8 +95,8 @@ pub fn embedding_thread(model: Model, mut receiver: tokio::sync::mpsc::Unbounded
             }
             continue;
         }
-        let Some(mut model) = model.0;
-        let embeddings = match model.embed(texts_to_embed, None) {
+        let Some(ref mut model_ref) = model.0 else {unreachable!()};
+        let embeddings = match model_ref.embed(texts_to_embed, None) {
             Ok(e) => e,
             Err(e) => {
                 for task in tasks {

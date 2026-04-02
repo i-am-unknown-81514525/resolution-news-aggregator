@@ -1,6 +1,10 @@
 use std::fmt;
 use chrono::{DateTime, FixedOffset, TimeZone as _, Utc};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(feature = "sqlx")]
+use sqlx::{FromRow, Row};
+#[cfg(feature = "sqlx")]
+use sqlx::postgres::PgRow;
 
 fn serialize_dt<S>(x: &DateTime<FixedOffset>, s: S) -> Result<S::Ok, S::Error>
 where
@@ -123,6 +127,25 @@ impl UnifyOutput {
         UnifyOutputRaw {
             data: serde_json::to_string(self).unwrap(),
         }
+    }
+}
+
+#[cfg(feature = "sqlx")]
+impl FromRow<PgRow> for UnifyOutput {
+    fn from_row(row: PgRow) -> Result<Self, sqlx::Error> {
+        let src: String = row.try_get("source")?;
+        Ok(Self {
+            id: row.try_get("id")?,
+            organisation: row.try_get("organisation")?,
+            title: row.try_get("title")?,
+            description: row.try_get("description")?,
+            time: row.try_get("time")?,
+            source: serde_json::from_str(&src).unwrap(),
+            score: row.try_get("score")?,
+            link: row.try_get("link")?,
+            hash_key: row.try_get("hash_key")?,
+            embedding: row.try_get("embedding")?,
+        })
     }
 }
 
