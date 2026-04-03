@@ -4,13 +4,7 @@ mod config;
 mod model;
 
 use std::collections::HashMap;
-use axum::{
-    Router,
-    body::Bytes,
-    extract::ws::{Message, WebSocketUpgrade},
-    response::{IntoResponse, Response},
-    routing::any,
-};
+use axum::{Router, body::Bytes, extract::ws::{Message, WebSocketUpgrade}, response::{IntoResponse, Response}, routing::any, Json};
 use axum_extra::TypedHeader;
 use indexmap::IndexMap;
 
@@ -38,7 +32,7 @@ use std::{env, thread};
 use std::fmt::format;
 use std::path::PathBuf;
 use cfg_if::cfg_if;
-use sqlx::{Error, Executor, PgPool, Postgres};
+use sqlx::{query, Error, Executor, PgPool, Postgres};
 use tracing::log::warn;
 use model::{Model, get_model};
 use crate::model::{embedding_thread, Task};
@@ -47,7 +41,6 @@ use pgvector::Vector;
 struct ServerState {
     // conns: Arc<Mutex<Vec<Arc<Mutex<WebSocket>>>>>,
     receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>,
-    history: Arc<RwLock<IndexMap<u64, Arc<UnifyOutputRaw>>>>,
     hash_data: Arc<RwLock<HashMap<String, u64, RandomState>>>,
     sender: tokio::sync::mpsc::UnboundedSender<Task>,
     pool: PgPool,
@@ -57,7 +50,6 @@ impl ServerState {
     pub fn new(receiver: tokio::sync::broadcast::Receiver<UnifyOutputRaw>, sender: tokio::sync::mpsc::UnboundedSender<Task>, pool: PgPool) -> Self {
         Self {
             receiver,
-            history: Arc::new(RwLock::new(IndexMap::with_capacity(1000))),
             hash_data: Arc::new(RwLock::new(HashMap::default())),
             sender,
             pool
@@ -296,31 +288,24 @@ async fn history_handler(
             .body(Body::from("Overflow protection"))
             .unwrap();
     }
-    let result: Vec<_> = {
-        let state_guard = state.lock().await;
-        let history_guard = state_guard.history.read().await;
-
-        history_guard
-            .iter()
-            .skip((query.page * query.size) as usize)
-            .take(query.size as usize)
-            .map(|x| x.1.clone())
-            .collect()
-    };
-    let mut resp = String::with_capacity(81920);
-    resp.push('[');
-    for (i, item) in result.iter().enumerate() {
-        if i > 0 {
-            resp.push(',');
+    let pool = state.lock().await.pool.clone();
+    let result: Vec<UnifyOutput> = match sqlx::query_as::<Postgres, UnifyOutput>(
+        "SELECT * FROM public.unify ORDER BY idx DESC LIMIT $1 OFFSET $2"
+    )
+        .bind(query.size as i64)
+        .bind((query.page*query.size) as i64)
+        .fetch_all(&pool)
+        .await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("Fail to read from db", e);
+            return Response::builder()
+                .status(500)
+                .body(Body::from("Fail to read from database"))
+                .unwrap();
         }
-        resp.push_str(&item.data);
-    }
-    resp.push(']');
-    Response::builder()
-        .status(200)
-        .header("Content-Type", "application/json")
-        .body(Body::from(resp))
-        .unwrap()
+    };
+    Json(result).into_response()
 }
 
 async fn news_ws_handler(
