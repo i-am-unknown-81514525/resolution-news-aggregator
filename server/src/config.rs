@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Serialize)]
 pub struct Config {
     #[serde(rename = "type")]
     pub(crate) rss_type: String,
