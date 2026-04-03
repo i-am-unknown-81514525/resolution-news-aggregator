@@ -67,12 +67,11 @@ pub fn embedding_thread(mut model: Model, mut receiver: tokio::sync::mpsc::Unbou
             return;
         }
 
-        let mut text_to_index: HashMap<String, usize> = HashMap::new();
-        let mut texts_to_embed = Vec::new();
-        let mut task_item_indices: Vec<Vec<usize>> = Vec::with_capacity(tasks.len());
-
         cfg_if! {
             if #[cfg(feature="embedding")] {
+                let mut text_to_index: HashMap<String, usize> = HashMap::new();
+                let mut texts_to_embed = Vec::new();
+                let mut task_item_indices: Vec<Vec<usize>> = Vec::with_capacity(tasks.len());
                 for task in &tasks {
                     let indices: Vec<usize> = task.request.iter().map(|item| {
                         let text = format!("{} {}", item.title, item.description);
