@@ -12,7 +12,7 @@ use common::unify::UnifyOutput;
 pub struct Model(Option<TextEmbedding>);
 
 #[cfg(not(feature = "embedding"))]
-pub struct EmbeddingModel;
+pub struct Model;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -34,7 +34,7 @@ pub fn get_model() -> Model {
                 Err(e) => Model(None)
             }
         } else {
-            model = Model {};
+            Model {}
         }
     }
 }
@@ -71,49 +71,58 @@ pub fn embedding_thread(mut model: Model, mut receiver: tokio::sync::mpsc::Unbou
         let mut texts_to_embed = Vec::new();
         let mut task_item_indices: Vec<Vec<usize>> = Vec::with_capacity(tasks.len());
 
-        for task in &tasks {
-            let indices: Vec<usize> = task.request.iter().map(|item| {
-                let text = format!("{} {}", item.title, item.description);
-                *text_to_index.entry(text).or_insert_with_key(|key| {
-                    let index = texts_to_embed.len();
-                    texts_to_embed.push(key.clone());
-                    index
-                })
-            }).collect();
-            task_item_indices.push(indices);
-        }
+        cfg_if! {
+            if #[cfg(feature="embedding")] {
+                for task in &tasks {
+                    let indices: Vec<usize> = task.request.iter().map(|item| {
+                        let text = format!("{} {}", item.title, item.description);
+                        *text_to_index.entry(text).or_insert_with_key(|key| {
+                            let index = texts_to_embed.len();
+                            texts_to_embed.push(key.clone());
+                            index
+                        })
+                    }).collect();
+                    task_item_indices.push(indices);
+                }
 
-        if texts_to_embed.is_empty() {
-            for task in tasks {
-                let _ = task.response.send(vec![None; task.request.len()]);
-            }
-            continue;
-        }
-        if let None = model.0 {
-            for task in tasks {
-                let _ = task.response.send(vec![None; task.request.len()]);
-            }
-            continue;
-        }
-        let Some(ref mut model_ref) = model.0 else {unreachable!()};
-        let embeddings = match model_ref.embed(texts_to_embed, None) {
-            Ok(e) => e,
-            Err(e) => {
+                if texts_to_embed.is_empty() {
+                    for task in tasks {
+                        let _ = task.response.send(vec![None; task.request.len()]);
+                    }
+                    continue;
+                }
+                if let None = model.0 {
+                    for task in tasks {
+                        let _ = task.response.send(vec![None; task.request.len()]);
+                    }
+                    continue;
+                }
+                let Some(ref mut model_ref) = model.0 else {unreachable!()};
+                let embeddings = match model_ref.embed(texts_to_embed, None) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        for task in tasks {
+                            let _ = task.response.send(vec![None; task.request.len()]);
+                        }
+                        continue;
+                    }
+                };
+
+                for (i, task) in tasks.into_iter().enumerate() {
+                    let results: Vec<Option<Vec<f32>>> = task_item_indices[i]
+                        .iter()
+                        .map(|&index| embeddings.get(index).cloned())
+                        .collect();
+
+                    if task.response.send(results).is_err() {
+                        tracing::warn!("Failed to send embedding result for task {}", task.uuid);
+                    }
+                }
+            } else {
                 for task in tasks {
                     let _ = task.response.send(vec![None; task.request.len()]);
                 }
                 continue;
-            }
-        };
-
-        for (i, task) in tasks.into_iter().enumerate() {
-            let results: Vec<Option<Vec<f32>>> = task_item_indices[i]
-                .iter()
-                .map(|&index| embeddings.get(index).cloned())
-                .collect();
-
-            if task.response.send(results).is_err() {
-                tracing::warn!("Failed to send embedding result for task {}", task.uuid);
             }
         }
     }
