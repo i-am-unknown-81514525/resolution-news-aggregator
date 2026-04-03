@@ -42,3 +42,5 @@ client/dist/*
 
 config.toml
 */.cargo
+model_data/
+pgdata/
