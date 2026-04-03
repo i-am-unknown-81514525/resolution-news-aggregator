@@ -27,7 +27,7 @@ pub fn get_model() -> Model {
         if #[cfg(feature="embedding")] {
             match TextEmbedding::try_new(
                 TextInitOptions::new(EmbeddingGemma300M)
-                    .with_cache_dir(PathBuf::from("/model_data"))
+                    .with_cache_dir(PathBuf::from("model_data/"))
                     .with_show_download_progress(true)
             ) {
                 Ok(model) => Model(Some(model)),

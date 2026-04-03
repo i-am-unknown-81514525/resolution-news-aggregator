@@ -137,6 +137,9 @@ RETURNING idx",
                     },
                     Err(Error::RowNotFound) => {}
                     Err(err) => {
+                        if err.to_string().contains(&" One of the strings in hash_key is already assigned to another record") {
+                            continue;
+                        }
                         warn!("Database failure on creating record: {}", err);
                     }
                 }
@@ -174,12 +177,12 @@ WHERE idx = $1")
                 .await {
                 Ok(r) => r,
                 Err(e) => {
-                    warn!("Fail to read from db", e);
+                    warn!("Fail to read from db: {}", e);
                     return;
                 }
             };
             for item in multi {
-                let recv_count = sender.send(item.to_raw()).await.unwrap_or(0);
+                let recv_count = sender.send(item.to_raw()).unwrap_or(0);
                 info!("Pushed document {} to {} receivers", item.id, recv_count);
             }
         }).await;
@@ -191,10 +194,10 @@ WHERE idx = $1")
 async fn main() {
     let postgres_username = env::var("POSTGRES_USER").unwrap_or("postgres".to_string());
     let postgres_password = env::var("POSTGRES_PASSWORD").unwrap_or("please-change-7a9ebb7fc05ac78b8cb04bf8".to_string());
-    let url = env::var("DATABASE_URL").unwrap_or("postgres:5432".to_string());
+    let url = env::var("DATABASE_URL").unwrap_or("database:5432".to_string());
     let pool: PgPool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(5)
-        .connect(&format!("{}:{}@{}", postgres_username, postgres_password, url))
+        .connect(&format!("postgresql://{}:{}@{}", postgres_username, postgres_password, url))
         .await.unwrap();
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
@@ -298,7 +301,7 @@ async fn history_handler(
         .await {
         Ok(r) => r,
         Err(e) => {
-            warn!("Fail to read from db", e);
+            warn!("Fail to read from db: {}", e);
             return Response::builder()
                 .status(500)
                 .body(Body::from("Fail to read from database"))

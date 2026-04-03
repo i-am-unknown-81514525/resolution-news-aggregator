@@ -29,6 +29,6 @@ WORKDIR /app
 #RUN apt-get update
 #RUN apt-get install -y libc6-amd64 libc6-dev libc6-dbg
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates
+    apt-get install -y --no-install-recommends ca-certificates libonnxruntime-dev libonnxruntime-providers libonnxruntime1.23 onnxruntime-tools python3-onnxruntime
 COPY --from=builder /app/news-agg /app/news-agg
 CMD ["./news-agg"]

@@ -39,3 +39,5 @@ client/dist/*
 */.cargo
 
 .env
+pgdata/
+model_data/
