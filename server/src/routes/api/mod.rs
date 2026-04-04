@@ -3,9 +3,11 @@ use crate::routes::Router;
 
 mod history;
 mod latest_id;
+mod get_new;
 
 pub fn routes() -> Router {
     Router::new()
         .nest("/history", history::routes())
         .nest("/latest_idx", latest_id::routes())
+        .nest("/get_new", get_new::routes())
 }
