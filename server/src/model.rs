@@ -15,6 +15,8 @@ pub struct Model(Option<TextEmbedding>);
 pub struct Model;
 
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::thread::sleep;
+use std::time::Duration;
 use fastembed::EmbeddingModel::AllMiniLML6V2Q;
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -44,6 +46,7 @@ pub struct Task {
     pub uuid: u64,
     pub request: Vec<UnifyOutput>,
     pub response: oneshot::Sender<Vec<Option<Vec<f32>>>>,
+    dt: chrono::DateTime<chrono::Utc>
 }
 
 impl Task {
@@ -53,10 +56,15 @@ impl Task {
             Self {
                 uuid: get_unique_id(),
                 request: data,
-                response: tx
+                response: tx,
+                dt: chrono::Utc::now()
             },
             rx
         )
+    }
+
+    pub fn age(&self) -> f32 {
+        chrono::Utc::now().signed_duration_since(self.dt).as_seconds_f32()
     }
 }
 
@@ -66,6 +74,13 @@ pub fn embedding_thread(mut model: Model, mut receiver: tokio::sync::mpsc::Unbou
         if receiver.blocking_recv_many(&mut tasks, 32) == 0 {
             tracing::info!("Sender disconnected, gracefully shutting down embedding thread.");
             return;
+        }
+        let age = tasks[0].age();
+        if age < 5. {
+            sleep(Duration::from_secs_f32(5.-age));
+        }
+        while let Ok(task) = receiver.try_recv() {
+            tasks.push(task);
         }
 
         cfg_if! {
