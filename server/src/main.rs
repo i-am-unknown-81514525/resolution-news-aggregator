@@ -2,13 +2,14 @@ mod plugins;
 mod value_enum;
 mod config;
 mod model;
+mod routes;
 
 use std::collections::HashMap;
-use axum::{Router, body::Bytes, extract::ws::{Message, WebSocketUpgrade}, response::{IntoResponse, Response}, routing::any, Json};
+use axum::{body::Bytes, extract::ws::{Message, WebSocketUpgrade}, response::{IntoResponse, Response}, routing::any, Json, Router};
 use axum_extra::TypedHeader;
 use indexmap::IndexMap;
 
-use crate::plugins::source::{RSSSource, RSSSourceType, remap};
+use crate::plugins::source::{remap, RSSSource, RSSSourceType};
 use crate::value_enum::EnumFromStr;
 use axum::body::Body;
 use axum::extract::ws::Utf8Bytes;
@@ -24,7 +25,7 @@ use tokio::sync::{Mutex, RwLock};
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use crate::config::{Config};
+use crate::config::Config;
 use ahash::RandomState;
 use rand::Rng;
 
@@ -34,7 +35,7 @@ use std::path::PathBuf;
 use cfg_if::cfg_if;
 use sqlx::{query, Error, Executor, PgPool, Postgres};
 use tracing::log::warn;
-use model::{Model, get_model};
+use model::{get_model, Model};
 use crate::model::{embedding_thread, Task};
 use pgvector::Vector;
 
@@ -235,8 +236,7 @@ async fn main() {
 
     let _clone = state.clone();
     let app = Router::new()
-        .route("/ws", any(news_ws_handler))
-        .route("/api/history", any(history_handler))
+        .merge(routes::routes())
         .with_state(_clone)
         .layer(
             TraceLayer::new_for_http()
@@ -251,128 +251,6 @@ async fn main() {
     .await;
 }
 
-static KEEPALIVE_BYTE: once_cell::sync::Lazy<Bytes> =
-    once_cell::sync::Lazy::new(|| Bytes::from("keepalive"));
 
-#[derive(Deserialize)]
-struct Pagination {
-    #[serde(default = "default_page")]
-    page: u64,
-    #[serde(default = "default_size")]
-    size: u64,
-}
 
-fn default_page() -> u64 {
-    0
-}
-fn default_size() -> u64 {
-    1000
-}
 
-#[axum::debug_handler]
-async fn history_handler(
-    State(state): State<Arc<Mutex<ServerState>>>,
-    Query(query): Query<Pagination>,
-) -> Response<Body> {
-    if query.size > 1000 || query.size == 0 {
-        return Response::builder()
-            .status(400)
-            .body(Body::from(format!(
-                "Query size must be less than or equal to 1000 and above 0, received {}",
-                query.size
-            )))
-            .unwrap();
-    }
-    if (query.page + 1) * query.size > (usize::MAX as u64)
-        || (query.page) * query.size > (usize::MAX as u64)
-    {
-        return Response::builder()
-            .status(400)
-            .body(Body::from("Overflow protection"))
-            .unwrap();
-    }
-    let pool = state.lock().await.pool.clone();
-    let result: Vec<UnifyOutput> = match sqlx::query_as::<Postgres, UnifyOutput>(
-        "SELECT * FROM public.unify ORDER BY idx DESC LIMIT $1 OFFSET $2"
-    )
-        .bind(query.size as i64)
-        .bind((query.page*query.size) as i64)
-        .fetch_all(&pool)
-        .await {
-        Ok(r) => r,
-        Err(e) => {
-            warn!("Fail to read from db: {}", e);
-            return Response::builder()
-                .status(500)
-                .body(Body::from("Fail to read from database"))
-                .unwrap();
-        }
-    };
-    Json(result).into_response()
-}
-
-async fn news_ws_handler(
-    ws: WebSocketUpgrade,
-    _user_agent: Option<TypedHeader<headers::UserAgent>>,
-    ConnectInfo(_addr): ConnectInfo<SocketAddr>,
-    State(state): State<Arc<Mutex<ServerState>>>,
-) -> impl IntoResponse {
-    ws.on_upgrade(move |mut socket| async move {
-        let state_clone = state.clone();
-        let _ = tokio::spawn(async move {
-            let mut rx_backend = state_clone.lock().await.receiver.resubscribe();
-            loop {
-                tokio::select! {
-                    backend = rx_backend.recv() => {
-                        match backend {
-                            Ok(v) => {
-                                match socket.send(Message::Text(Utf8Bytes::from(v.data))).await {
-                                    Ok(_) => {},
-                                    Err(e) => {
-                                        tracing::warn!("Unhandled websocket disconnection: {}", e);
-                                        break;
-                                    }
-                                }
-                            },
-                            Err(e) => {
-                                tracing::warn!("Websocket disconnection as backend worker disconnected: {}", e);
-                                break;
-                            }
-                        }
-                    }
-                    sock_ret = socket.recv() => {
-                        match sock_ret {
-                            Some(Ok(Message::Close(c)))=> {
-                                tracing::debug!("Websocket disconnection - received closing frame: {:?}", c);
-                                break;
-                            },
-                            Some(Ok(_)) => {},
-                            Some(Err(e)) => {
-                                tracing::warn!("Unexpected websocket disconnection: {}", e);
-                                break;
-                            },
-                            None => {
-                                tracing::debug!("Websocket disconnection gracefully");
-                            }
-                        }
-                    }
-                    _ = tokio::time::sleep(Duration::from_secs(5)) => {
-                        match socket.send(Message::Ping(KEEPALIVE_BYTE.clone())).await {
-                            Ok(_) => {},
-                            Err(e) => {
-                                tracing::warn!("Unhandled websocket disconnection: {}", e);
-                                break;
-                            }
-                        }
-                    }
-                    else => {
-                        tracing::warn!("Unhandled websocket disconnection");
-                        break;
-                    }
-                }
-            }
-            let _ = socket.send(Message::Close(None)).await; // Attempt graceful close and expect failed
-        }).await;
-        
-    })
-}
