@@ -101,6 +101,7 @@ pub fn embedding_thread(mut model: Model, mut receiver: tokio::sync::mpsc::Unbou
                 let embeddings = match model_ref.embed(texts_to_embed, None) {
                     Ok(e) => e,
                     Err(e) => {
+                        tracing::warn!("Failed to embed text: {}", e);
                         for task in tasks {
                             let _ = task.response.send(vec![None; task.request.len()]);
                         }
