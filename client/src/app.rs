@@ -29,7 +29,19 @@ use crate::comp::CtxObj;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 
-struct Count(Option<u32>);
+pub enum Latest {
+    Unknown,
+    PendingFetch,
+    Known(u64)
+}
+
+pub struct LatestWrap(Latest);
+
+pub enum CurrentInner {
+    PendingFetch,
+    Value(u64)
+}
+pub struct Current(CurrentInner);
 
 pub struct Internal {
     #[cfg(target_arch = "wasm32")]
@@ -37,7 +49,8 @@ pub struct Internal {
     pub sender: Sender<UnifyOutput>,
     pub receiver: Arc<Mutex<Receiver<UnifyOutput>>>,
     pub initial: bool,
-    pub page: Arc<RwLock<Count>>,
+    pub latest: Arc<RwLock<LatestWrap>>,
+    pub current: Arc<RwLock<Current>>
     // pub last_update: chrono::DateTime<chrono::FixedOffset>
 }
 
@@ -50,14 +63,15 @@ impl Internal {
             sender,
             receiver: Arc::new(Mutex::new(receiver)),
             initial: true,
-            page: Arc::new(RwLock::new(Count(Some(0)))),
+            latest: Arc::new(RwLock::new(LatestWrap(Latest::Unknown))),
+            current: Arc::new(RwLock::new(Current(CurrentInner::Value(0)))),
             // last_update: chrono::Utc::now().with_timezone(&chrono::FixedOffset::east_opt(0).unwrap())
         }
     }
 }
 
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct App {
     pub src: String,
@@ -124,7 +138,7 @@ impl App {
         for item in result.history.read().unwrap().iter(){
             process(result.windows.clone(), item.1.clone());
         }
-        update_feed(cc.egui_ctx.clone(), result.history.clone(), result.internal.read().unwrap().page.clone(), &result.src, result.windows.clone());
+        update_feed(cc.egui_ctx.clone(), result.clone());
         result
     }
 }
@@ -140,48 +154,79 @@ extern "C" {
 }
 
 
-fn update_feed(ctx: egui::Context, rw: Arc<RwLock<IndexMap<String, UnifyOutput>>>, counter: Arc<RwLock<Count>>, path: &str, windows: Arc<DashMap<u32, Arc<Mutex<Windows>>>>) {
-    let page_num: u32 = {
-        let mut lock = counter.write().unwrap();
-        let v = match lock.0 {
-            None => return ,
-            Some(v) => v,
-        };
-        lock.0 = None;
-        v
-    };
-    let mut history: String = path.to_string();
-    history.push_str("/api/history");
-    history.push_str(&format!("?page={}", page_num));
-    let counter_clone = counter.clone();
-    ehttp::fetch(ehttp::Request::get(history), move |result| {
-        if let Ok(response) = result
-            && response.status / 100 == 2
-            && let Some(data) = response.text() {
+fn update_feed(ctx: egui::Context, app: App) {
+    let internal = app.internal.read().unwrap();
+    let latest = internal.latest.clone();
+    drop(internal);
+    let windows = app.windows.clone();
+    let app_clone = app.clone();
+    let latest_value;
+    match latest.read().unwrap().0 {
+        Latest::Unknown => {
+            let mut history: String = app.src.to_string();
+            history.push_str("/api/latest_idx");
+            ehttp::fetch(ehttp::Request::get(history), move |result| {
+                if let Ok(response) = result && response.status / 100 == 2 && let Some(data) = response.text() {
+                    app.internal.write().unwrap().latest.write().unwrap().0 = Latest::PendingFetch;
+                    let out: u64 = match serde_json::from_str(data) {
+                        Ok(t)=>t,
+                        Err(e) => {
+                            console_log!("Failed to get latest index");
+                            app_clone.internal.read().unwrap().latest.write().unwrap().0 = Latest::Unknown;
+                            return;
+                        }
+                    };
+                    app_clone.internal.write().unwrap().latest.write().unwrap().0 = Latest::Known(out);
+                    return update_feed(ctx.clone(), app_clone);
+                }
+            });
+            return;
+        },
+        Latest::PendingFetch => {
+            return;
+        }
+        Latest::Known(v) => {
+            latest_value = v;
+        }
+    }
+    if let CurrentInner::Value(v) = app.internal.read().unwrap().current.read().unwrap().0 &&
+        v < latest_value {
+        let mut history: String = app.src.to_string();
+        history.push_str("/api/get_new");
+        history.push_str(&format!("?from={}", v));
+        let current_clone = app.internal.read().unwrap().current.clone();
+        app.internal.write().unwrap().current.write().unwrap().0 = CurrentInner::PendingFetch;
+        ehttp::fetch(ehttp::Request::get(history), move |result| {
+            if let Ok(response) = result
+                && response.status / 100 == 2
+                && let Some(data) = response.text() {
                 let out: Vec<UnifyOutput> = match serde_json::from_str(data) {
                     Ok(t)=>t,
                     Err(e) => {
                         console_log!("Failed to serialize, data: \'{}\', error: \'{}\'", data, e);
+                        current_clone.write().unwrap().0 = CurrentInner::Value(v);
                         return;
                     }
                 };
-                if !out.is_empty() {
-                    let mut lock = counter_clone.write().unwrap();
-                    lock.0 = Some(page_num + 1);
-                } else {
-                    let mut lock = counter_clone.write().unwrap();
-                    lock.0 = None;
-                }
+                let rw = app.history.clone();
+                let mut changed = false;
                 for item in out {
                     let cl = windows.clone();
                     rw.write().unwrap().entry(item.id.clone()).or_insert_with(|| {
                         process(cl, item.clone());
+                        changed = true;
                         item
                     });
                 }
-                ctx.request_repaint();
+                if changed {
+                    let max = rw.read().unwrap().values().max_by_key(|x| x.idx).unwrap().idx;
+                    app.internal.write().unwrap().current.write().unwrap().0 = CurrentInner::Value(max as u64);
+                    ctx.request_repaint();
+                    return update_feed(ctx.clone(), app_clone);
+                }
             }
-    });
+        });
+    }
 }
 
 fn process(windows: Arc<DashMap<u32, Arc<Mutex<Windows>>>>, news: UnifyOutput) {
@@ -218,11 +263,11 @@ impl eframe::App for App {
                     path.push_str("/ws");
                     let ws = WasmWebsocket::new(&path, self.internal.read().unwrap().sender.clone(), self.internal.clone());
                     self.internal.write().unwrap().ws = Some(ws);
-                    self.internal.write().unwrap().page.clone().write().unwrap().0 = Some(0);
+                    self.internal.write().unwrap().latest.write().unwrap().0 = Latest::Unknown;
                 }
             }
         }
-        update_feed(ctx.clone(), self.history.clone(), self.internal.read().unwrap().page.clone(), &self.src, self.windows.clone());
+        update_feed(ctx.clone(), self.clone());
         if self.internal.read().unwrap().initial {
             self.internal.write().unwrap().initial = false;
             ctx.request_repaint();

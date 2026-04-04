@@ -9,6 +9,7 @@ use common::unify::UnifyOutput;
 use serde_json::{from_str};
 use crate::app::Internal;
 
+#[derive(Clone)]
 pub struct WasmWebsocket(pub WebSocket, pub Sender<UnifyOutput>);
 
 
