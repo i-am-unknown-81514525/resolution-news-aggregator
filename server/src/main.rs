@@ -117,6 +117,17 @@ pub async fn background_fetching(
             info!("Pushing {} outputs from {}", outputs.len(), config);
             let mut proc_id: Vec<(i64, UnifyOutput)> = Vec::new();
             for output in outputs {
+                match sqlx::query!("SELECT 1 as f FROM unify
+        WHERE hash_key && $1 ", output.hash_key.as_slice())
+                    .fetch_one(&pool).await {
+                    Ok(_) => {
+                        continue;
+                    },
+                    Err(Error::RowNotFound) => {}
+                    Err(e) => {
+                        warn!("Fail to check duplicate: {}", e);
+                    }
+                }
                 let result = sqlx::query!("INSERT INTO
     public.unify(id, organisation, title, description, time, source, score, link, hash_key)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)

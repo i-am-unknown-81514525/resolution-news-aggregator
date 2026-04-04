@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT 1 as f FROM unify\n        WHERE hash_key && $1 ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "f",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "cf8ba4655b98c7cf369269503ca0d7c40a4a75d9e73dc8b8a56de2f7a0dc97cc"
+}
