@@ -15,6 +15,7 @@ pub struct Model(Option<TextEmbedding>);
 pub struct Model;
 
 use std::sync::atomic::{AtomicU64, Ordering};
+use fastembed::EmbeddingModel::AllMiniLML6V2Q;
 
 static ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -26,7 +27,7 @@ pub fn get_model() -> Model {
     cfg_if! {
         if #[cfg(feature="embedding")] {
             match TextEmbedding::try_new(
-                TextInitOptions::new(EmbeddingGemma300M)
+                TextInitOptions::new(AllMiniLML6V2Q)
                     .with_cache_dir(PathBuf::from("model_data/"))
                     .with_show_download_progress(true)
             ) {
