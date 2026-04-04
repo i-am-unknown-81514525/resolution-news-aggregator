@@ -111,6 +111,7 @@ impl<'de> Deserialize<'de> for SourceKind {
 /// A unified output format to be displayed on the websocket
 #[derive(Serialize, Debug, Clone, Deserialize)]
 pub struct UnifyOutput {
+    pub idx: i64,
     pub id: String,
     pub organisation: String,
     pub title: String,
@@ -140,6 +141,7 @@ impl FromRow<'_, PgRow> for UnifyOutput {
         let time = Utc.from_utc_datetime(&time_sql).fixed_offset();
         let vec: Option<Vector> = row.try_get("embedding")?;
         Ok(Self {
+            idx: row.try_get("idx")?,
             id: row.try_get("id")?,
             organisation: row.try_get("organisation")?,
             title: row.try_get("title")?,

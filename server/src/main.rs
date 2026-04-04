@@ -131,7 +131,7 @@ RETURNING idx",
                     output.score.map(|x| x as f64),
                     output.link,
                     output.hash_key.as_slice(),
-                ).fetch_one(&pool).await;
+                ).fetch_one(&pool).await; // Ignore idx field because it is not known yet - the config will just give 0
                 match result {
                     Ok(record) => {
                         proc_id.push((record.idx, output));

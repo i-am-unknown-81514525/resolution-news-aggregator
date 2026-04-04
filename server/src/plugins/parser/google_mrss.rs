@@ -25,6 +25,7 @@ pub struct GoogleMrssItem {
 impl GoogleMrssItem {
     pub fn get_unify(&self) -> UnifyOutput {
         UnifyOutput {
+            idx: 0,
             id: self.guid.id.clone(),
             organisation: self.source.publisher.clone(),
             title: self.title.clone(),

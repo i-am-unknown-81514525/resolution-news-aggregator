@@ -19,6 +19,7 @@ pub struct Rss2RssItem {
 impl Rss2RssItem {
     pub fn get_unify(&self) -> UnifyOutput {
         UnifyOutput {
+            idx: 0,
             id: self.guid.id.clone(),
             organisation: Url::from_str(&self.link).map(|v| v.clone().host_str().unwrap_or("Unknown").to_string()).unwrap_or("Unknown".to_string()),
             title: self.title.clone(),

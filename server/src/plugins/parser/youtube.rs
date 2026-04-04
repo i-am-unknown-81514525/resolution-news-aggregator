@@ -50,6 +50,7 @@ impl YoutubeFeedEntry {
     pub fn get_unify(&self) -> UnifyOutput {
         let id = format!("youtube:{}", self.video_id);
         UnifyOutput {
+            idx: 0,
             id: id.clone(),
             organisation: self.author.name.clone(),
             title: self.title.clone(),

@@ -18,6 +18,7 @@ impl HackerNewsRssItem {
     pub fn get_unify(&self) -> UnifyOutput {
         let id = format!("hacker_news:{}", self.comments.clone().replace("https://news.ycombinator.com/item?id=", ""));
         UnifyOutput {
+            idx: 0,
             id: id.clone(),
             organisation: Url::from_str(&self.link).map(|v| v.clone().host_str().unwrap_or("Unknown").to_string()).unwrap_or("Unknown".to_string()),
             title: self.title.clone(),

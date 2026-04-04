@@ -47,6 +47,7 @@ impl RedditFeedEntry {
     pub fn get_unify(&self) -> UnifyOutput {
         let id = format!("reddit:{}", self.id);
         UnifyOutput {
+            idx: 0,
             id: id.clone(),
             organisation: format!("{} in {}", self.author.name.clone(), self.category.label),
             title: self.title.clone(),
