@@ -89,6 +89,16 @@ pub struct App {
     pub internal: Arc<RwLock<Internal>>
 }
 
+macro_rules! console_log {
+    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
+}
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
 impl Default for App {
     fn default() -> Self {
         let mut dashmap: DashMap<u32, Arc<Mutex<Windows>>> = DashMap::new();
@@ -148,20 +158,12 @@ impl App {
             }
         }
         result.internal.write().unwrap().current.write().unwrap().0 = CurrentInner::Value(max_idx as u64);
+        console_log!("Loaded {} item, latest_idx={}", result.history.read().unwrap().len(), max_idx);
         update_feed(cc.egui_ctx.clone(), result.clone());
         result
     }
 }
 
-macro_rules! console_log {
-    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
-}
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
 
 
 fn update_feed(ctx: egui::Context, app: App) {
