@@ -7,6 +7,7 @@ mod wasm_websocket;
 mod dt;
 mod utils;
 mod comp;
+mod local_unify;
 // mod comp;
 
 pub use app::App;
