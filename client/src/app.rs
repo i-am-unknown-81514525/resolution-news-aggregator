@@ -300,10 +300,16 @@ impl eframe::App for App {
         let has_update = !update.is_empty();
         for item in update {
             let cl = self.windows.clone();
+            let idx = item.idx as u64;
             self.history.write().unwrap().entry(item.id.clone()).or_insert_with(|| {
                 process(cl, item.clone());
                 item
             });
+            let curr_idx = self.internal.read().unwrap().current.read().unwrap().0;
+            if let CurrentInner::Value(v) = curr_idx &&
+                v < idx {
+                self.internal.write().unwrap().current.write().unwrap().0 = CurrentInner::Value(idx);
+            }
         }
 
         self.history.write().unwrap().sort_by(|_k1, v1, _k2, v2| v1.time.timestamp_micros().cmp(&v2.time.timestamp_micros()));
