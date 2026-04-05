@@ -33,3 +33,4 @@ TODO:
   - [ ] rank by embedding/time
   - [ ] filter by content/embedding/source/time
   - [x] Modular UI
+  - [ ] Use IndexDB
