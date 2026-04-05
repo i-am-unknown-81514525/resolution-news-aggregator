@@ -51,6 +51,7 @@ async fn get_new_handler(
     let result: Vec<UnifyOutput> = match sqlx::query_as::<Postgres, UnifyOutput>(
         "SELECT * FROM (
     SELECT * FROM public.unify
+    WHERE idx > $1
     ORDER BY idx ASC
     LIMIT 1000
 ) AS subquery
