@@ -13,10 +13,10 @@ TODO:
   - [x] Spawn individual task for each config kind
   - [x] Config file
   - [ ] Google News URL resolve
-  - [ ] SQL database
+  - [x] SQL database
   - [ ] Server side output filter
   - [ ] PWA Push API handling
-  - [ ] `embeddinggemma-300m ` embedding for documents
+  - [x] ~`embeddinggemma-300m `~ embedding for documents (used lighter model)
 - RSS Source
   - [ ] Google News Domain based (i.e. lazy API)
   - [x] Hacker News
@@ -32,3 +32,4 @@ TODO:
   - [ ] ehttp error handling
   - [ ] rank by embedding/time
   - [ ] filter by content/embedding/source/time
+  - [x] Modular UI
