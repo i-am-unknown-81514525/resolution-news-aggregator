@@ -140,9 +140,14 @@ impl App {
                 ctx.request_repaint();
             }
         });
+        let mut max_idx: i64 = 0;
         for item in result.history.read().unwrap().iter(){
             process(result.windows.clone(), item.1.clone());
+            if item.1.idx > max_idx {
+                max_idx = item.1.idx;
+            }
         }
+        result.internal.write().unwrap().current.write().unwrap().0 = CurrentInner::Value(max_idx as u64);
         update_feed(cc.egui_ctx.clone(), result.clone());
         result
     }
@@ -165,7 +170,7 @@ fn update_feed(ctx: egui::Context, app: App) {
     let app_clone = app.clone();
     let latest_value;
     let curr = latest.read().unwrap().0;
-    console_log!("Trigger update_feed");
+    // console_log!("Trigger update_feed");
     match curr {
         Latest::Unknown => {
             latest.write().unwrap().0 = Latest::PendingFetch;
@@ -206,7 +211,6 @@ fn update_feed(ctx: egui::Context, app: App) {
         history.push_str("/api/get_new");
         history.push_str(&format!("?from={}", v));
         let current_clone = app.internal.read().unwrap().current.clone();
-        console_log!("Trigger update, v={}, latest_idx={} (URL constructed)", v, latest_value);
         app.internal.read().unwrap().current.write().unwrap().0 = CurrentInner::PendingFetch;
         ehttp::fetch(ehttp::Request::get(history), move |result| {
             let mut changed = false;
