@@ -81,7 +81,7 @@ impl Internal {
 pub struct App {
     pub src: String,
 
-    pub history: Arc<RwLock<IndexMap<String, UnifyOutput>>>,
+    pub history: Arc<RwLock<IndexMap<i64, UnifyOutput>>>,
 
     pub windows: Arc<DashMap<u32, Arc<Mutex<Windows>>>>,
 
@@ -230,7 +230,7 @@ fn update_feed(ctx: egui::Context, app: App) {
                     let rw = app_clone.history.clone();
                     for item in out {
                         let cl = windows.clone();
-                        rw.write().unwrap().entry(item.id.clone()).or_insert_with(|| {
+                        rw.write().unwrap().entry(item.idx).or_insert_with(|| {
                             process(cl, item.clone());
                             changed = true;
                             item
@@ -301,7 +301,7 @@ impl eframe::App for App {
         for item in update {
             let cl = self.windows.clone();
             let idx = item.idx as u64;
-            self.history.write().unwrap().entry(item.id.clone()).or_insert_with(|| {
+            self.history.write().unwrap().entry(item.idx).or_insert_with(|| {
                 process(cl, item.clone());
                 item
             });
