@@ -124,13 +124,10 @@ impl App {
         let result: App;
         if let Some(storage) = cc.storage {
             console_log!("Found session from storage");
-            result = match eframe::get_value(storage, eframe::APP_KEY) {
-                Ok(v) => v,
-                Err(e) => {
-                    console_log!("Failed to get app: {}", e);
-                    Default::default()
-                }
-            }
+            result = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_else(|| {
+                console_log!("Failed to get app");
+                Default::default()
+            })
         } else {
             result = Default::default();
             console_log!("Cannot find session from storage");
