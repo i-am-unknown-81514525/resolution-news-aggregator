@@ -9,5 +9,6 @@ mod utils;
 mod comp;
 mod local_unify;
 // mod comp;
+mod db;
 
 pub use app::App;

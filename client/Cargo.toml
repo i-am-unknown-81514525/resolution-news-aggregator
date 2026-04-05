@@ -36,6 +36,7 @@ ehttp = "0.6.0"
 indexmap = { version = "2.13.0", features = ["serde"] }
 chrono = "0.4.44"
 dashmap = { version = "6.1.0", features = ["serde"] }
+rkyv = "0.8.15"
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.11.8"
@@ -52,7 +53,7 @@ web-sys = { version = "0.3.70", features = ["WebSocket", "BinaryType",
     "CloseEvent"] }
 wasm-bindgen = "0.2.114"
 js-sys = "0.3.91"
-indexed-db = "0.4.2"
+idb = { version = "0.6.5", default-features = false }
 # to access the DOM (to hide the loading text)
 
 #[profile.release]
