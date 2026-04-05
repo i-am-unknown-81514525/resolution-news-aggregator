@@ -29,18 +29,23 @@ use crate::comp::CtxObj;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 
+#[derive(Copy, Clone)]
 pub enum Latest {
     Unknown,
     PendingFetch,
     Known(u64)
 }
 
+#[derive(Copy, Clone)]
 pub struct LatestWrap(Latest);
 
+#[derive(Copy, Clone)]
 pub enum CurrentInner {
     PendingFetch,
     Value(u64)
 }
+
+#[derive(Copy, Clone)]
 pub struct Current(CurrentInner);
 
 pub struct Internal {
@@ -155,28 +160,32 @@ extern "C" {
 
 
 fn update_feed(ctx: egui::Context, app: App) {
-    let internal = app.internal.read().unwrap();
-    let latest = internal.latest.clone();
-    drop(internal);
+    let latest = app.internal.read().unwrap().latest.clone();
     let windows = app.windows.clone();
     let app_clone = app.clone();
     let latest_value;
-    match latest.read().unwrap().0 {
+    let curr = latest.read().unwrap().0;
+    console_log!("Trigger update_feed");
+    match curr {
         Latest::Unknown => {
+            latest.write().unwrap().0 = Latest::PendingFetch;
             let mut history: String = app.src.to_string();
             history.push_str("/api/latest_idx");
             ehttp::fetch(ehttp::Request::get(history), move |result| {
                 if let Ok(response) = result && response.status / 100 == 2 && let Some(data) = response.text() {
-                    app.internal.write().unwrap().latest.write().unwrap().0 = Latest::PendingFetch;
-                    let out: u64 = match serde_json::from_str(data) {
-                        Ok(t)=>t,
-                        Err(e) => {
-                            console_log!("Failed to get latest index");
-                            app_clone.internal.read().unwrap().latest.write().unwrap().0 = Latest::Unknown;
-                            return;
-                        }
+                    let _ = {
+                        app.internal.write().unwrap().latest.write().unwrap().0 = Latest::PendingFetch;
+                        let out: u64 = match serde_json::from_str(data) {
+                            Ok(t)=>t,
+                            Err(e) => {
+                                console_log!("Failed to get latest index");
+                                app_clone.internal.read().unwrap().latest.write().unwrap().0 = Latest::Unknown;
+                                return;
+                            }
+                        };
+                        console_log!("Set latest_idx={}", out);
+                        app_clone.internal.write().unwrap().latest.write().unwrap().0 = Latest::Known(out);
                     };
-                    app_clone.internal.write().unwrap().latest.write().unwrap().0 = Latest::Known(out);
                     return update_feed(ctx.clone(), app_clone);
                 }
             });
@@ -189,41 +198,49 @@ fn update_feed(ctx: egui::Context, app: App) {
             latest_value = v;
         }
     }
-    if let CurrentInner::Value(v) = app.internal.read().unwrap().current.read().unwrap().0 &&
+    let curr = app.internal.read().unwrap().current.read().unwrap().0;
+    if let CurrentInner::Value(v) =  curr &&
         v < latest_value {
+        console_log!("Trigger update, v={}, latest_idx={}", v, latest_value);
         let mut history: String = app.src.to_string();
         history.push_str("/api/get_new");
         history.push_str(&format!("?from={}", v));
         let current_clone = app.internal.read().unwrap().current.clone();
-        app.internal.write().unwrap().current.write().unwrap().0 = CurrentInner::PendingFetch;
+        console_log!("Trigger update, v={}, latest_idx={} (URL constructed)", v, latest_value);
+        app.internal.read().unwrap().current.write().unwrap().0 = CurrentInner::PendingFetch;
         ehttp::fetch(ehttp::Request::get(history), move |result| {
-            if let Ok(response) = result
-                && response.status / 100 == 2
-                && let Some(data) = response.text() {
-                let out: Vec<UnifyOutput> = match serde_json::from_str(data) {
-                    Ok(t)=>t,
-                    Err(e) => {
-                        console_log!("Failed to serialize, data: \'{}\', error: \'{}\'", data, e);
-                        current_clone.write().unwrap().0 = CurrentInner::Value(v);
-                        return;
+            let mut changed = false;
+            console_log!("Recv history resp");
+            let _ = {
+                if let Ok(response) = result
+                    && response.status / 100 == 2
+                    && let Some(data) = response.text() {
+                    let out: Vec<UnifyOutput> = match serde_json::from_str(data) {
+                        Ok(t)=>t,
+                        Err(e) => {
+                            console_log!("Failed to serialize, data: \'{}\', error: \'{}\'", data, e);
+                            current_clone.write().unwrap().0 = CurrentInner::Value(v);
+                            return;
+                        }
+                    };
+                    let rw = app_clone.history.clone();
+                    for item in out {
+                        let cl = windows.clone();
+                        rw.write().unwrap().entry(item.id.clone()).or_insert_with(|| {
+                            process(cl, item.clone());
+                            changed = true;
+                            item
+                        });
                     }
-                };
-                let rw = app.history.clone();
-                let mut changed = false;
-                for item in out {
-                    let cl = windows.clone();
-                    rw.write().unwrap().entry(item.id.clone()).or_insert_with(|| {
-                        process(cl, item.clone());
-                        changed = true;
-                        item
-                    });
+                    if changed {
+                        let max = rw.read().unwrap().values().max_by_key(|x| x.idx).unwrap().idx;
+                        app_clone.internal.write().unwrap().current.write().unwrap().0 = CurrentInner::Value(max as u64);
+                        ctx.request_repaint();
+                    }
                 }
-                if changed {
-                    let max = rw.read().unwrap().values().max_by_key(|x| x.idx).unwrap().idx;
-                    app.internal.write().unwrap().current.write().unwrap().0 = CurrentInner::Value(max as u64);
-                    ctx.request_repaint();
-                    return update_feed(ctx.clone(), app_clone);
-                }
+            };
+            if changed {
+                return update_feed(ctx.clone(), app_clone);
             }
         });
     }
