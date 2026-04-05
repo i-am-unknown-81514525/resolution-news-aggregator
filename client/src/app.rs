@@ -133,6 +133,7 @@ impl App {
             }
         } else {
             result = Default::default();
+            console_log!("Cannot find session from storage");
         }
         let url = "/NotoSerifCJK-VF.otf.ttc";
 
