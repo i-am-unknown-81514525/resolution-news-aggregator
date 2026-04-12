@@ -21,7 +21,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked,id=reg-${
     --mount=type=cache,target=/app/target,sharing=locked,id=cache-${TARGETARCH} \
     cargo build --release --bin news-aggregator-server
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked,id=reg-${TARGETARCH} \
-    --mount=type=cache,target=/app/target,sharing=,id=cache-${TARGETARCH} \
+    --mount=type=cache,target=/app/target,sharing=locked,id=cache-${TARGETARCH} \
     cp /app/target/release/news-aggregator-server /app/news-agg
 
 FROM debian:sid-slim
