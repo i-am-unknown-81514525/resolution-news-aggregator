@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-docker compose up -d --no-build --pull always frontend backend
+docker compose up -d --no-build --pull always
