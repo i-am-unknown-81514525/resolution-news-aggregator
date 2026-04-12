@@ -10,7 +10,7 @@ env:
 jobs:
   build:
     # Matrix handles both Service and Architecture
-    runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-latest' || 'ubuntu-24.04-arm64' }}
+    runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
     strategy:
       matrix:
         service: [server, client]
